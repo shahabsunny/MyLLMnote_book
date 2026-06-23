@@ -37,6 +37,19 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .pdf-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+        .pdf-container canvas {
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -53,20 +66,130 @@
     
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
 
-    <!-- ===== PURE REACT WITH createElement ===== -->
     <script>
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
+        // ===== PDF VIEWER COMPONENT =====
+        function PDFViewer({ doc, page, onPagesLoaded, scale }) {
+            const [isLoading, setIsLoading] = useState(true);
+            const [error, setError] = useState(null);
+            const canvasRef = useRef(null);
+            const renderTaskRef = useRef(null);
+
+            useEffect(() => {
+                let isMounted = true;
+                
+                const renderPDF = async () => {
+                    if (!doc || !doc.data) {
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    try {
+                        setIsLoading(true);
+                        setError(null);
+
+                        // Cancel any previous render
+                        if (renderTaskRef.current) {
+                            try { renderTaskRef.current.cancel(); } catch(e) {}
+                            renderTaskRef.current = null;
+                        }
+
+                        // Load the PDF
+                        const loadingTask = pdfjsLib.getDocument({ data: doc.data });
+                        const pdf = await loadingTask.promise;
+                        
+                        if (isMounted) {
+                            if (onPagesLoaded) onPagesLoaded(pdf.numPages);
+                        }
+
+                        // Get the page
+                        const pageNum = Math.min(page, pdf.numPages);
+                        const pdfPage = await pdf.getPage(pageNum);
+                        const viewport = pdfPage.getViewport({ scale: scale || 1.2 });
+                        
+                        const canvas = canvasRef.current;
+                        if (!canvas) {
+                            setIsLoading(false);
+                            return;
+                        }
+
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        // Clear canvas
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+
+                        // Render the page
+                        const renderTask = pdfPage.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        });
+                        renderTaskRef.current = renderTask;
+
+                        await renderTask.promise;
+
+                        if (isMounted) {
+                            setIsLoading(false);
+                            renderTaskRef.current = null;
+                        }
+                    } catch (err) {
+                        console.error("PDF Render Error:", err);
+                        if (isMounted) {
+                            setError(err.message);
+                            setIsLoading(false);
+                        }
+                    }
+                };
+
+                renderPDF();
+
+                return () => {
+                    isMounted = false;
+                    if (renderTaskRef.current) {
+                        try { renderTaskRef.current.cancel(); } catch(e) {}
+                        renderTaskRef.current = null;
+                    }
+                };
+            }, [doc, page, scale, onPagesLoaded]);
+
+            if (error) {
+                return React.createElement('div', { className: 'text-red-500 text-center p-4' },
+                    'Error loading PDF: ' + error
+                );
+            }
+
+            return React.createElement('div', { className: 'pdf-container relative' },
+                isLoading ? 
+                    React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
+                        React.createElement('div', { className: 'loading-spinner' })
+                    ) : null,
+                React.createElement('canvas', {
+                    ref: canvasRef,
+                    className: 'shadow-2xl bg-white',
+                    style: { display: isLoading ? 'none' : 'block' }
+                })
+            );
+        }
+
+        // ===== MAIN APP =====
         function App() {
             // ===== STATE =====
             const [documents, setDocuments] = useState([]);
-            const [activeDoc, setActiveDoc] = useState(null);
+            const [activeDocId, setActiveDocId] = useState(null);
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
             const [theme, setTheme] = useState('light');
             const [color, setColor] = useState('red');
+            const [currentPage, setCurrentPage] = useState(1);
+            const [numPages, setNumPages] = useState(0);
+            const [pdfScale, setPdfScale] = useState(1.2);
             
             // ===== API KEY STATE =====
             const [apiKey, setApiKey] = useState(() => {
@@ -91,8 +214,7 @@
             const handleApiKeyChange = (e) => {
                 const newKey = e.target.value;
                 setTempApiKey(newKey);
-                const status = validateApiKey(newKey);
-                setApiStatus(status);
+                setApiStatus(validateApiKey(newKey));
             };
 
             const handleSaveApiKey = () => {
@@ -139,26 +261,70 @@
             };
 
             const handleUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
+                const files = e.target.files;
+                if (!files || files.length === 0) return;
                 
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const newDoc = { id: Date.now(), name: file.name, data: ev.target.result };
-                    setDocuments([...documents, newDoc]);
-                    setActiveDoc(newDoc);
-                };
-                reader.readAsDataURL(file);
+                for (const file of files) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const newDoc = { 
+                            id: Date.now() + Math.random(), 
+                            name: file.name, 
+                            data: ev.target.result 
+                        };
+                        setDocuments(prev => [...prev, newDoc]);
+                        if (!activeDocId) {
+                            setActiveDocId(newDoc.id);
+                            setCurrentPage(1);
+                            setNumPages(0);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
                 e.target.value = '';
+            };
+
+            const handleSelectDocument = (docId) => {
+                setActiveDocId(docId);
+                setCurrentPage(1);
+                setNumPages(0);
+            };
+
+            const handleDeleteDocument = (docId) => {
+                setDocuments(prev => prev.filter(d => d.id !== docId));
+                if (activeDocId === docId) {
+                    const remaining = documents.filter(d => d.id !== docId);
+                    setActiveDocId(remaining.length > 0 ? remaining[0].id : null);
+                    setCurrentPage(1);
+                    setNumPages(0);
+                }
+            };
+
+            const goToPreviousPage = () => {
+                if (currentPage > 1) setCurrentPage(currentPage - 1);
+            };
+
+            const goToNextPage = () => {
+                if (numPages && currentPage < numPages) setCurrentPage(currentPage + 1);
+            };
+
+            const handleZoomIn = () => {
+                setPdfScale(prev => Math.min(prev + 0.2, 3));
+            };
+
+            const handleZoomOut = () => {
+                setPdfScale(prev => Math.max(prev - 0.2, 0.5));
+            };
+
+            const handleResetView = () => {
+                setPdfScale(1.2);
             };
 
             const sendMessage = () => {
                 if (!input.trim()) return;
                 setMessages([...messages, { role: 'user', text: input }]);
                 
-                // Check if API key is valid
                 if (apiStatus === 'valid') {
-                    // Simulate API call
                     setTimeout(() => {
                         setMessages(prev => [...prev, { 
                             role: 'bot', 
@@ -194,7 +360,9 @@
                 return { next, colors };
             };
 
-            // ===== BUILD UI WITH createElement =====
+            const activeDoc = documents.find(d => d.id === activeDocId);
+
+            // ===== BUILD UI =====
             
             // Chat messages
             const chatMessages = messages.map((m, i) => {
@@ -206,14 +374,19 @@
 
             // Document list items
             const docItems = documents.map(d => {
-                const isActive = activeDoc?.id === d.id;
-                return React.createElement('button', {
-                    key: d.id,
-                    onClick: () => setActiveDoc(d),
-                    className: `w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${isActive ? `${getColorClass('bg')} text-white` : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`
-                }, 
-                    React.createElement('span', null, '📄'),
-                    React.createElement('span', { className: 'truncate' }, d.name)
+                const isActive = activeDocId === d.id;
+                return React.createElement('div', { key: d.id, className: 'group relative' },
+                    React.createElement('button', {
+                        onClick: () => handleSelectDocument(d.id),
+                        className: `w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${isActive ? `${getColorClass('bg')} text-white` : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`
+                    }, 
+                        React.createElement('span', null, '📄'),
+                        React.createElement('span', { className: 'truncate flex-1' }, d.name)
+                    ),
+                    React.createElement('button', {
+                        onClick: () => handleDeleteDocument(d.id),
+                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
+                    }, '✕')
                 );
             });
 
@@ -260,6 +433,20 @@
                 );
             }
 
+            // PDF Viewer
+            const pdfViewer = activeDoc ? 
+                React.createElement(PDFViewer, {
+                    doc: activeDoc,
+                    page: currentPage,
+                    onPagesLoaded: setNumPages,
+                    scale: pdfScale
+                }) :
+                React.createElement('div', { className: 'text-center text-gray-400 dark:text-gray-500' },
+                    React.createElement('div', { className: 'text-6xl mb-4' }, '📄'),
+                    React.createElement('p', null, 'No document loaded'),
+                    React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
+                );
+
             // Main app UI
             return React.createElement('div', {
                 className: `min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`
@@ -270,14 +457,11 @@
                 },
                     React.createElement('h1', { className: `font-serif text-xl font-bold ${getColorClass('text')}` }, 'MyLLM Research Note'),
                     React.createElement('div', { className: 'flex items-center gap-3 flex-wrap' },
-                        // API Key Manager
                         apiKeyManager,
-                        // Theme toggle
                         React.createElement('button', {
                             onClick: toggleTheme,
                             className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
                         }, theme === 'light' ? '🌙' : '☀️'),
-                        // Color picker
                         React.createElement('button', {
                             onClick: () => {
                                 const { next } = getColorOptions();
@@ -302,8 +486,16 @@
                             },
                                 React.createElement('span', null, '📄'),
                                 React.createElement('span', { className: 'text-sm font-semibold' }, 'Upload Document'),
-                                React.createElement('input', { id: 'fileInput', type: 'file', className: 'hidden', accept: '.pdf', onChange: handleUpload })
-                            )
+                                React.createElement('input', { 
+                                    id: 'fileInput', 
+                                    type: 'file', 
+                                    className: 'hidden', 
+                                    accept: '.pdf', 
+                                    onChange: handleUpload,
+                                    multiple: true
+                                })
+                            ),
+                            React.createElement('p', { className: 'text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1' }, 'Upload one or multiple PDFs')
                         ),
                         // Library
                         React.createElement('div', { className: 'flex-1 overflow-y-auto p-3' },
@@ -332,8 +524,31 @@
                                 activeDoc ? activeDoc.name : 'Document Viewer'
                             ),
                             activeDoc ? 
-                                React.createElement('div', { className: 'flex items-center gap-2' },
-                                    React.createElement('span', { className: 'text-xs' }, 'Page 1 / 1')
+                                React.createElement('div', { className: 'flex items-center gap-2 flex-wrap' },
+                                    React.createElement('button', {
+                                        onClick: handleZoomIn,
+                                        className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                    }, '➕'),
+                                    React.createElement('button', {
+                                        onClick: handleZoomOut,
+                                        className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                    }, '➖'),
+                                    React.createElement('button', {
+                                        onClick: handleResetView,
+                                        className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs px-2 text-gray-700 dark:text-gray-300'
+                                    }, 'Reset'),
+                                    React.createElement('span', { className: 'text-xs w-10 text-gray-700 dark:text-gray-300' }, (pdfScale * 100).toFixed(0) + '%'),
+                                    React.createElement('button', {
+                                        onClick: goToPreviousPage,
+                                        disabled: currentPage <= 1,
+                                        className: `p-1 rounded ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'} text-gray-700 dark:text-gray-300`
+                                    }, '◀'),
+                                    React.createElement('span', { className: 'text-xs text-gray-700 dark:text-gray-300' }, currentPage + ' / ' + (numPages || '?')),
+                                    React.createElement('button', {
+                                        onClick: goToNextPage,
+                                        disabled: !numPages || currentPage >= numPages,
+                                        className: `p-1 rounded ${!numPages || currentPage >= numPages ? 'opacity-50 cursor-not-allowed' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'} text-gray-700 dark:text-gray-300`
+                                    }, '▶')
                                 ) : null
                         ),
 
@@ -350,19 +565,9 @@
                                 }, '🌳 Create Mindmap')
                             ) : null,
 
-                        // Viewer Content
+                        // PDF Viewer Content
                         React.createElement('div', { className: 'flex-1 overflow-auto p-4 flex items-center justify-center' },
-                            activeDoc ? 
-                                React.createElement('div', { className: 'bg-white dark:bg-gray-700 rounded-lg shadow-xl p-8 text-center' },
-                                    React.createElement('div', { className: 'text-6xl mb-4' }, '📄'),
-                                    React.createElement('p', { className: 'text-gray-600 dark:text-gray-300' }, activeDoc.name),
-                                    React.createElement('p', { className: 'text-sm text-gray-400 dark:text-gray-500 mt-2' }, 'PDF loaded successfully!')
-                                ) :
-                                React.createElement('div', { className: 'text-center text-gray-400 dark:text-gray-500' },
-                                    React.createElement('div', { className: 'text-6xl mb-4' }, '📄'),
-                                    React.createElement('p', null, 'No document loaded'),
-                                    React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
-                                )
+                            pdfViewer
                         )
                     ),
 
