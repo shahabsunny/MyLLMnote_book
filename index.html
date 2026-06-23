@@ -9,7 +9,13 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     <style>
-        html, body, #root { height: 100%; margin: 0; padding: 0; }
+        html,
+        body,
+        #root {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
         .loading-spinner {
             border: 4px solid #f3f4f6;
             border-top: 4px solid #dc2626;
@@ -19,8 +25,12 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
         .status-dot {
             display: inline-block;
@@ -29,21 +39,14 @@
             border-radius: 50%;
             margin-right: 4px;
         }
-        .status-dot.green { background-color: #22c55e; }
-        .status-dot.red { background-color: #ef4444; }
-        .status-dot.yellow { background-color: #eab308; }
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+        .status-dot.green {
+            background-color: #22c55e;
         }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
+        .status-dot.red {
+            background-color: #ef4444;
         }
-        .animate-bounce {
-            animation: bounce 0.6s infinite;
+        .status-dot.yellow {
+            background-color: #eab308;
         }
     </style>
 </head>
@@ -56,101 +59,79 @@
     </div>
 
     <!-- React and ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    
-    <!-- PDF.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">
+    </script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js">
+    </script>
 
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+    </script>
+
+    <!-- ===== SIMPLE WORKING APP - NO JSX, NO BABEL ===== -->
     <script>
-        const { useState, useEffect, useRef, createContext, useContext } = React;
+        // Get React and ReactDOM from global scope
+        const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // ===== THEME CONTEXT =====
-        const ThemeContext = createContext();
-
-        const useTheme = () => {
-            const context = useContext(ThemeContext);
-            return context;
-        };
-
-        // ===== THEME PROVIDER =====
-        const ThemeProvider = ({ children }) => {
-            const [theme, setTheme] = useState(() => {
-                try { return localStorage.getItem('app_theme') || 'light'; } catch(e) { return 'light'; }
-            });
-            const [colorScheme, setColorScheme] = useState(() => {
-                try { return localStorage.getItem('app_color_scheme') || 'red'; } catch(e) { return 'red'; }
-            });
-
-            useEffect(() => {
-                try { localStorage.setItem('app_theme', theme); } catch(e) {}
-                try { localStorage.setItem('app_color_scheme', colorScheme); } catch(e) {}
-                if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }, [theme, colorScheme]);
-
-            const colorSchemes = {
-                red: { primary: 'bg-red-600', primaryHover: 'hover:bg-red-700', primaryLight: 'bg-red-50 dark:bg-red-900/20', primaryText: 'text-red-600 dark:text-red-400', primaryBorder: 'border-red-500', bg: 'red', hex: '#dc2626' },
-                blue: { primary: 'bg-blue-600', primaryHover: 'hover:bg-blue-700', primaryLight: 'bg-blue-50 dark:bg-blue-900/20', primaryText: 'text-blue-600 dark:text-blue-400', primaryBorder: 'border-blue-500', bg: 'blue', hex: '#2563eb' },
-                green: { primary: 'bg-green-600', primaryHover: 'hover:bg-green-700', primaryLight: 'bg-green-50 dark:bg-green-900/20', primaryText: 'text-green-600 dark:text-green-400', primaryBorder: 'border-green-500', bg: 'green', hex: '#16a34a' },
-                purple: { primary: 'bg-purple-600', primaryHover: 'hover:bg-purple-700', primaryLight: 'bg-purple-50 dark:bg-purple-900/20', primaryText: 'text-purple-600 dark:text-purple-400', primaryBorder: 'border-purple-500', bg: 'purple', hex: '#9333ea' },
-                orange: { primary: 'bg-orange-600', primaryHover: 'hover:bg-orange-700', primaryLight: 'bg-orange-50 dark:bg-orange-900/20', primaryText: 'text-orange-600 dark:text-orange-400', primaryBorder: 'border-orange-500', bg: 'orange', hex: '#ea580c' },
-            };
-
-            const currentColors = colorSchemes[colorScheme] || colorSchemes.red;
-
-            return React.createElement(ThemeContext.Provider, { value: { theme, setTheme, colorScheme, setColorScheme, colors: currentColors, colorSchemes } }, children);
-        };
-
-        // ===== APP =====
+        // ===== SIMPLE APP =====
         function App() {
-            const { theme, colors } = useTheme();
-            const [apiKey, setApiKey] = useState(() => {
-                try { return localStorage.getItem('gemini_api_key') || ''; } catch(e) { return ''; }
-            });
-            const [apiStatus, setApiStatus] = useState(() => {
-                const key = localStorage.getItem('gemini_api_key') || '';
-                if (!key) return 'idle';
-                if (key.length > 10) return 'valid';
-                return 'invalid';
-            });
-            const [showApiInput, setShowApiInput] = useState(false);
-            const [tempApiKey, setTempApiKey] = useState('');
             const [documents, setDocuments] = useState([]);
-            const [activeDocId, setActiveDocId] = useState(null);
+            const [activeDoc, setActiveDoc] = useState(null);
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
+            const [theme, setTheme] = useState('light');
+            const [color, setColor] = useState('red');
+            const [apiKey, setApiKey] = useState('');
+            const [apiStatus, setApiStatus] = useState('idle');
+            const [showApiInput, setShowApiInput] = useState(false);
+            const [tempApiKey, setTempApiKey] = useState('');
             const [currentPage, setCurrentPage] = useState(1);
             const [numPages, setNumPages] = useState(0);
             const [pdfScale, setPdfScale] = useState(1.2);
-            const [panX, setPanX] = useState(0);
-            const [panY, setPanY] = useState(0);
-            const [isDragging, setIsDragging] = useState(false);
-            const [dragStartX, setDragStartX] = useState(0);
-            const [dragStartY, setDragStartY] = useState(0);
-            const [interactMode, setInteractMode] = useState(false);
             const [showMindmap, setShowMindmap] = useState(false);
             const [mindmapData, setMindmapData] = useState(null);
-            const [isGeneratingMindmap, setIsGeneratingMindmap] = useState(false);
             const [showPresentation, setShowPresentation] = useState(false);
-            const [isGenerating, setIsGenerating] = useState(false);
-            const viewerRef = useRef(null);
 
-            // API Key functions
-            const validateApiKey = (key) => {
-                if (!key || key.trim() === '') return 'idle';
-                if (key.trim().length > 10) return 'valid';
-                return 'invalid';
+            // ===== THEME FUNCTIONS =====
+            const toggleTheme = () => {
+                const newTheme = theme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+                document.documentElement.classList.toggle('dark');
             };
 
+            // ===== COLOR FUNCTIONS =====
+            const getColorClass = (type) => {
+                const colors = {
+                    red: { bg: 'bg-red-600', hover: 'hover:bg-red-700', text: 'text-red-600' },
+                    blue: { bg: 'bg-blue-600', hover: 'hover:bg-blue-700', text: 'text-blue-600' },
+                    green: { bg: 'bg-green-600', hover: 'hover:bg-green-700', text: 'text-green-600' },
+                    purple: { bg: 'bg-purple-600', hover: 'hover:bg-purple-700', text: 'text-purple-600' },
+                    orange: { bg: 'bg-orange-600', hover: 'hover:bg-orange-700', text: 'text-orange-600' }
+                };
+                const c = colors[color] || colors.red;
+                return type === 'bg' ? c.bg : type === 'hover' ? c.hover : c.text;
+            };
+
+            const getStatusConfig = () => {
+                switch (apiStatus) {
+                    case 'valid':
+                        return { dot: 'green', text: 'Connected' };
+                    case 'invalid':
+                        return { dot: 'red', text: 'Invalid Key' };
+                    default:
+                        return { dot: 'yellow', text: 'Not Set' };
+                }
+            };
+            const statusConfig = getStatusConfig();
+
+            // ===== API KEY FUNCTIONS =====
             const handleApiKeyChange = (e) => {
                 const newKey = e.target.value;
                 setTempApiKey(newKey);
-                setApiStatus(validateApiKey(newKey));
+                if (!newKey || newKey.trim() === '') setApiStatus('idle');
+                else if (newKey.trim().length > 10) setApiStatus('valid');
+                else setApiStatus('invalid');
             };
 
             const handleSaveApiKey = () => {
@@ -165,7 +146,9 @@
             const handleCancelApiKey = () => {
                 setTempApiKey(apiKey);
                 setShowApiInput(false);
-                setApiStatus(validateApiKey(apiKey));
+                if (!apiKey) setApiStatus('idle');
+                else if (apiKey.length > 10) setApiStatus('valid');
+                else setApiStatus('invalid');
             };
 
             const handleRemoveApiKey = () => {
@@ -176,134 +159,58 @@
                 setShowApiInput(false);
             };
 
-            const getStatusConfig = () => {
-                switch(apiStatus) {
-                    case 'valid': return { dot: 'green', text: 'Connected', bg: 'bg-green-50 dark:bg-green-900/20', textColor: 'text-green-700 dark:text-green-400' };
-                    case 'invalid': return { dot: 'red', text: 'Invalid Key', bg: 'bg-red-50 dark:bg-red-900/20', textColor: 'text-red-700 dark:text-red-400' };
-                    default: return { dot: 'yellow', text: 'Not Set', bg: 'bg-yellow-50 dark:bg-yellow-900/20', textColor: 'text-yellow-700 dark:text-yellow-400' };
-                }
-            };
-            const statusConfig = getStatusConfig();
-
-            // Extract text from PDF
-            const extractTextFromPDF = async (pdfData) => {
-                try {
-                    if (!window.pdfjsLib) return { fullText: '', pageTexts: [] };
-                    const loadingTask = window.pdfjsLib.getDocument(pdfData);
-                    const pdf = await loadingTask.promise;
-                    let fullText = '';
-                    let pageTexts = [];
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        pageTexts.push({ page: i, text: pageText });
-                        fullText += pageText + '\n';
-                    }
-                    return { fullText, pageTexts };
-                } catch (err) {
-                    return { fullText: '', pageTexts: [] };
-                }
-            };
-
-            // Handle upload
-            const handleUploadDocument = async (e) => {
+            // ===== DOCUMENT FUNCTIONS =====
+            const handleUpload = (e) => {
                 const files = e.target.files;
                 if (!files || files.length === 0) return;
                 for (const file of files) {
                     const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        const pdfData = ev.target.result;
-                        const extracted = await extractTextFromPDF(pdfData);
+                    reader.onload = (ev) => {
                         const newDoc = {
                             id: Date.now() + Math.random() * 1000,
                             name: file.name,
-                            data: pdfData,
-                            text: extracted.fullText,
-                            pageTexts: extracted.pageTexts
+                            data: ev.target.result
                         };
                         setDocuments(prev => [...prev, newDoc]);
-                        if (!activeDocId) {
-                            setActiveDocId(newDoc.id);
-                            setCurrentPage(1);
-                            setNumPages(0);
-                        }
+                        if (!activeDoc) setActiveDoc(newDoc);
                     };
                     reader.readAsDataURL(file);
                 }
                 e.target.value = '';
             };
 
-            const handleSelectDocument = (docId) => {
-                setActiveDocId(docId);
-                setCurrentPage(1);
-                setNumPages(0);
-                setShowMindmap(false);
-                setShowPresentation(false);
-                setPanX(0);
-                setPanY(0);
-                setPdfScale(1.2);
-            };
-
-            const handleDeleteDocument = (docId) => {
+            const handleDelete = (docId) => {
                 setDocuments(prev => prev.filter(d => d.id !== docId));
-                if (activeDocId === docId) {
+                if (activeDoc && activeDoc.id === docId) {
                     const remaining = documents.filter(d => d.id !== docId);
-                    setActiveDocId(remaining.length > 0 ? remaining[0].id : null);
-                    setNumPages(0);
+                    setActiveDoc(remaining.length > 0 ? remaining[0] : null);
                 }
             };
 
-            const goToPreviousPage = () => {
-                if (currentPage > 1) setCurrentPage(currentPage - 1);
-            };
-
-            const goToNextPage = () => {
-                if (numPages && currentPage < numPages) setCurrentPage(currentPage + 1);
-            };
-
-            const handleZoomIn = () => {
-                setPdfScale(prev => Math.min(prev + 0.2, 3));
-            };
-
-            const handleZoomOut = () => {
-                setPdfScale(prev => Math.max(prev - 0.2, 0.5));
-            };
-
-            const handleResetView = () => {
-                setPdfScale(1.2);
-                setPanX(0);
-                setPanY(0);
-            };
-
-            const toggleInteractMode = () => {
-                setInteractMode(!interactMode);
-                if (!interactMode) {
-                    setPanX(0);
-                    setPanY(0);
-                }
-            };
-
+            // ===== CHAT FUNCTIONS =====
             const sendMessage = () => {
                 if (!input.trim()) return;
                 setMessages(prev => [...prev, { role: 'user', text: input }]);
                 setTimeout(() => {
                     setMessages(prev => [...prev, {
                         role: 'bot',
-                        text: apiStatus === 'valid' ? "✅ API Key is valid! This is a demo response." : "⚠️ Please set a valid API key to use the Gemini integration."
+                        text: apiStatus === 'valid' ?
+                            "✅ API Key is valid! This is a demo response. The full Gemini integration is ready." :
+                            "⚠️ Please set a valid API key in the header to use the Gemini integration."
                     }]);
                 }, 500);
                 setInput('');
             };
 
+            // ===== MINDMAP FUNCTIONS =====
             const generateMindmap = () => {
-                const activeDoc = documents.find(d => d.id === activeDocId);
                 if (!activeDoc) {
                     alert('Please upload a document first');
                     return;
                 }
                 setMindmapData([
-                    { id: 'root', label: activeDoc.name.replace('.pdf', '').substring(0, 30), parent: null, color: colors.hex },
+                    { id: 'root', label: activeDoc.name.replace('.pdf', '').substring(0, 30), parent: null,
+                    color: '#dc2626' },
                     { id: '1', label: 'Key Concept 1', parent: 'root', color: '#4CAF50' },
                     { id: '2', label: 'Key Concept 2', parent: 'root', color: '#2196F3' },
                     { id: '3', label: 'Key Concept 3', parent: 'root', color: '#FF9800' },
@@ -315,8 +222,8 @@
                 setShowMindmap(true);
             };
 
+            // ===== PRESENTATION FUNCTIONS =====
             const generatePresentation = () => {
-                const activeDoc = documents.find(d => d.id === activeDocId);
                 if (!activeDoc) {
                     alert('Please upload a document first');
                     return;
@@ -325,19 +232,10 @@
                 setShowPresentation(false);
             };
 
-            // Get color class for current scheme
-            const getColorClass = (type) => {
-                const c = colors || { primary: 'bg-red-600', primaryHover: 'hover:bg-red-700', primaryText: 'text-red-600' };
-                return type === 'bg' ? c.primary : type === 'hover' ? c.primaryHover : c.primaryText;
-            };
-
-            const activeDoc = documents.find(d => d.id === activeDocId);
-
             // ===== PDF VIEWER =====
             function PDFViewer({ doc, page, onPagesLoaded, scale }) {
                 const [isLoading, setIsLoading] = useState(true);
                 const canvasRef = useRef(null);
-                const renderTaskRef = useRef(null);
 
                 useEffect(() => {
                     let isMounted = true;
@@ -346,11 +244,6 @@
                     const renderPDF = async () => {
                         try {
                             setIsLoading(true);
-                            if (renderTaskRef.current) {
-                                try { renderTaskRef.current.cancel(); } catch(e) {}
-                                renderTaskRef.current = null;
-                            }
-
                             const loadingTask = window.pdfjsLib.getDocument({ data: doc.data });
                             const pdf = await loadingTask.promise;
                             if (isMounted && onPagesLoaded) onPagesLoaded(pdf.numPages);
@@ -365,37 +258,19 @@
                             canvas.height = viewport.height;
                             canvas.width = viewport.width;
                             context.clearRect(0, 0, canvas.width, canvas.width);
-
-                            const renderTask = pdfPage.render({ canvasContext: context, viewport: viewport });
-                            renderTaskRef.current = renderTask;
-                            await renderTask.promise;
-
-                            if (isMounted) {
-                                setIsLoading(false);
-                                renderTaskRef.current = null;
-                            }
+                            await pdfPage.render({ canvasContext: context, viewport: viewport }).promise;
+                            if (isMounted) setIsLoading(false);
                         } catch (err) {
-                            if (isMounted) {
-                                console.error("PDF Render Error:", err);
-                                setIsLoading(false);
-                            }
+                            console.error("PDF Render Error:", err);
+                            if (isMounted) setIsLoading(false);
                         }
                     };
-
                     renderPDF();
-                    return () => {
-                        isMounted = false;
-                        if (renderTaskRef.current) {
-                            try { renderTaskRef.current.cancel(); } catch(e) {}
-                            renderTaskRef.current = null;
-                        }
-                    };
+                    return () => { isMounted = false; };
                 }, [doc, page, scale, onPagesLoaded]);
 
                 return React.createElement('div', { className: 'relative w-full h-full flex items-center justify-center' },
-                    isLoading ? React.createElement('div', { className: 'absolute inset-0 flex items-center justify-center' },
-                        React.createElement('div', { className: 'loading-spinner' })
-                    ) : null,
+                    isLoading ? React.createElement('div', { className: 'loading-spinner' }) : null,
                     React.createElement('canvas', {
                         ref: canvasRef,
                         className: 'shadow-2xl bg-white',
@@ -404,206 +279,46 @@
                 );
             }
 
-            // ===== MINDMAP VIEWER =====
-            function MindmapViewer({ data, onClose }) {
-                if (!data || data.length === 0) {
-                    return React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col items-center justify-center p-8' },
-                        React.createElement('div', { className: 'text-gray-400 dark:text-gray-500 text-center' },
-                            React.createElement('p', null, 'No mindmap data available')
-                        ),
-                        React.createElement('button', { onClick: onClose, className: 'mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded' }, 'Close')
-                    );
-                }
+            // ===== BUILD UI WITH createElement =====
 
-                return React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col' },
-                    React.createElement('div', { className: 'flex justify-between items-center p-3 border-b bg-gray-50 dark:bg-gray-700' },
-                        React.createElement('h3', { className: 'font-bold text-lg text-gray-900 dark:text-gray-100' }, '🌳 Mindmap'),
-                        React.createElement('button', { onClick: onClose, className: 'text-gray-500 hover:text-gray-700' }, '✕')
+            // Chat messages
+            const chatMessages = messages.map((m, i) => {
+                return React.createElement('div', {
+                    key: i,
+                    className: `p-2 rounded text-sm ${m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4'}`
+                }, m.text);
+            });
+
+            // Document list items
+            const docItems = documents.map(d => {
+                const isActive = activeDoc && activeDoc.id === d.id;
+                return React.createElement('div', { key: d.id, className: 'group relative' },
+                    React.createElement('button', {
+                        onClick: () => setActiveDoc(d),
+                        className: `w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${isActive ? getColorClass('bg') + ' text-white' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`
+                    },
+                        React.createElement('span', null, '📄'),
+                        React.createElement('span', { className: 'truncate flex-1' }, d.name)
                     ),
-                    React.createElement('div', { className: 'flex-1 overflow-auto p-4' },
-                        React.createElement('div', { className: 'flex flex-wrap gap-4' },
-                            data.map(node => React.createElement('div', {
-                                key: node.id,
-                                className: 'p-4 rounded-lg shadow-md text-white',
-                                style: { backgroundColor: node.color, marginLeft: node.parent ? '30px' : '0' }
-                            }, node.label))
-                        )
-                    )
+                    React.createElement('button', {
+                        onClick: () => handleDelete(d.id),
+                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
+                    }, '✕')
                 );
-            }
+            });
 
-            // ===== PRESENTATION CREATOR =====
-            function PresentationCreator({ doc, onClose }) {
-                const [numSlides, setNumSlides] = useState(5);
-                const [isGenerating, setIsGenerating] = useState(false);
-
-                const handleGenerate = () => {
-                    if (!doc) { alert('Please upload a document first'); return; }
-                    setIsGenerating(true);
-                    setTimeout(() => {
-                        alert(`✅ Presentation generated with ${numSlides} slides from "${doc.name}"!`);
-                        setIsGenerating(false);
-                        onClose();
-                    }, 1500);
-                };
-
-                return React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8' },
-                    React.createElement('div', { className: 'flex justify-between items-center mb-6' },
-                        React.createElement('h2', { className: 'text-2xl font-bold text-gray-900 dark:text-gray-100' }, '🎯 Create Presentation'),
-                        React.createElement('button', { onClick: onClose, className: 'p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded' }, '✕')
-                    ),
-                    React.createElement('div', { className: 'max-w-md mx-auto space-y-6' },
-                        React.createElement('div', null,
-                            React.createElement('label', { className: 'block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300' }, 'Number of Slides: ' + numSlides),
-                            React.createElement('input', {
-                                type: 'range',
-                                min: '3',
-                                max: '15',
-                                value: numSlides,
-                                onChange: (e) => setNumSlides(parseInt(e.target.value)),
-                                className: 'w-full'
-                            })
-                        ),
-                        React.createElement('button', {
-                            onClick: handleGenerate,
-                            disabled: isGenerating || apiStatus !== 'valid',
-                            className: 'w-full py-3 rounded font-semibold transition-colors text-white ' + (isGenerating || apiStatus !== 'valid' ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed' : getColorClass('bg') + ' ' + getColorClass('hover'))
-                        }, isGenerating ? 'Generating...' : 'Generate Presentation'),
-                        React.createElement('p', { className: 'text-xs text-gray-500 dark:text-gray-400 text-center' },
-                            apiStatus !== 'valid' ? 'Please set a valid API key first' : 'Create a ' + numSlides + '-slide presentation'
-                        )
-                    )
-                );
-            }
-
-            // ===== DOCUMENT LIST =====
-            function DocumentList({ documents, activeDocId, onSelectDocument, onUploadDocument, onDeleteDocument }) {
-                const fileInputRef = useRef(null);
-                const [uploading, setUploading] = useState(false);
-
-                const handleUpload = async (e) => {
-                    const files = e.target.files;
-                    if (!files || files.length === 0) return;
-                    setUploading(true);
-                    onUploadDocument(e);
-                    setUploading(false);
-                    e.target.value = '';
-                };
-
-                const docItems = documents.map(d => {
-                    const isActive = activeDocId === d.id;
-                    return React.createElement('div', { key: d.id, className: 'group relative' },
-                        React.createElement('button', {
-                            onClick: () => onSelectDocument(d.id),
-                            className: 'w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ' + (isActive ? getColorClass('bg') + ' text-white' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700')
-                        },
-                            React.createElement('span', null, '📄'),
-                            React.createElement('span', { className: 'truncate flex-1' }, d.name)
-                        ),
-                        React.createElement('button', {
-                            onClick: () => onDeleteDocument(d.id),
-                            className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
-                        }, '✕')
-                    );
-                });
-
-                return React.createElement('div', { className: 'flex flex-col h-full bg-gray-50 dark:bg-gray-900' },
-                    React.createElement('div', { className: 'p-3 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0' },
-                        React.createElement('button', {
-                            onClick: () => fileInputRef.current?.click(),
-                            disabled: uploading,
-                            className: 'w-full py-2 px-3 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm ' + getColorClass('bg') + ' ' + getColorClass('hover') + (uploading ? ' opacity-50 cursor-not-allowed' : '')
-                        },
-                            React.createElement('span', null, '📄'),
-                            React.createElement('span', { className: 'text-sm font-semibold' }, uploading ? 'Uploading...' : 'Upload Document'),
-                            React.createElement('input', {
-                                ref: fileInputRef,
-                                type: 'file',
-                                className: 'hidden',
-                                accept: '.pdf',
-                                onChange: handleUpload,
-                                multiple: true
-                            })
-                        ),
-                        React.createElement('p', { className: 'text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1' }, 'Upload one or multiple PDFs')
-                    ),
-                    React.createElement('div', { className: 'flex-1 overflow-y-auto p-3' },
-                        React.createElement('div', { className: 'flex items-center gap-2 mb-2' },
-                            React.createElement('span', { className: 'text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400' }, '📚 Library (' + documents.length + ')')
-                        ),
-                        documents.length === 0 ?
-                            React.createElement('div', { className: 'text-gray-400 dark:text-gray-500 text-sm text-center mt-8' },
-                                React.createElement('div', { className: 'text-4xl mb-2' }, '📄'),
-                                React.createElement('p', null, 'No documents'),
-                                React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
-                            ) :
-                            React.createElement('div', null, docItems)
-                    )
-                );
-            }
-
-            // ===== CHAT INTERFACE =====
-            function ChatInterface({ messages, input, setInput, sendMessage }) {
-                const messagesEndRef = useRef(null);
-
-                useEffect(() => {
-                    if (messagesEndRef.current) {
-                        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                    }
-                }, [messages]);
-
-                const chatMessages = messages.map((m, i) => {
-                    return React.createElement('div', {
-                        key: i,
-                        className: 'p-2 rounded text-sm ' + (m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4')
-                    }, m.text);
-                });
-
-                return React.createElement('div', { className: 'flex flex-col h-full bg-white dark:bg-gray-800 overflow-hidden' },
-                    React.createElement('div', { className: 'text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-2 border-b dark:border-gray-700 flex justify-between items-center flex-shrink-0' },
-                        React.createElement('span', null, '💬 Research Assistant'),
-                        apiStatus === 'valid' ?
-                            React.createElement('span', { className: 'text-xs text-green-600 dark:text-green-400' }, '✅ Online') :
-                            React.createElement('span', { className: 'text-xs text-yellow-600 dark:text-yellow-400' }, '⚠️ API Key Required')
-                    ),
-                    React.createElement('div', { className: 'flex-1 overflow-y-auto p-2 space-y-2' },
-                        messages.length === 0 ?
-                            React.createElement('div', { className: 'text-gray-400 dark:text-gray-500 text-sm text-center mt-4' }, '💬 Ask me anything about your documents!') :
-                            chatMessages,
-                        React.createElement('div', { ref: messagesEndRef })
-                    ),
-                    React.createElement('div', { className: 'p-2 border-t dark:border-gray-700 flex-shrink-0' },
-                        React.createElement('div', { className: 'flex gap-2' },
-                            React.createElement('input', {
-                                value: input,
-                                onChange: (e) => setInput(e.target.value),
-                                className: 'flex-1 border p-2 rounded text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 ' + (apiStatus !== 'valid' ? 'cursor-not-allowed opacity-60' : ''),
-                                placeholder: apiStatus === 'valid' ? 'Ask anything...' : 'Set API key first...',
-                                onKeyPress: (e) => e.key === 'Enter' && sendMessage(),
-                                disabled: apiStatus !== 'valid'
-                            }),
-                            React.createElement('button', {
-                                onClick: sendMessage,
-                                disabled: apiStatus !== 'valid',
-                                className: 'p-2 rounded text-white ' + (apiStatus === 'valid' ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed')
-                            }, '➤')
-                        ),
-                        apiStatus !== 'valid' ?
-                            React.createElement('p', { className: 'text-xs text-yellow-600 dark:text-yellow-500 mt-1' }, '⚠️ Please set a valid API key in the header') :
-                            null
-                    )
-                );
-            }
-
-            // ===== API KEY MANAGER UI =====
+            // API Key Manager UI
             let apiKeyManager;
             if (!showApiInput) {
                 apiKeyManager = React.createElement('div', { className: 'flex items-center gap-2' },
                     React.createElement('span', { className: 'text-xs text-gray-500 dark:text-gray-400' }, '🔑'),
-                    React.createElement('span', { className: 'status-dot ' + statusConfig.dot }),
-                    React.createElement('span', { className: 'text-xs ' + statusConfig.textColor }, statusConfig.text),
+                    React.createElement('span', { className: `status-dot ${statusConfig.dot}` }),
+                    React.createElement('span', { className: `text-xs ${apiStatus === 'valid' ? 'text-green-700 dark:text-green-400' : apiStatus === 'invalid' ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}` },
+                        statusConfig.text
+                    ),
                     React.createElement('button', {
-                        onClick: () => { setShowApiInput(true); setTempApiKey(apiKey); },
+                        onClick: () => { setShowApiInput(true);
+                            setTempApiKey(apiKey); },
                         className: 'text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300'
                     }, apiKey ? 'Change' : 'Set Key'),
                     apiKey ? React.createElement('button', {
@@ -625,7 +340,7 @@
                     React.createElement('button', {
                         onClick: handleSaveApiKey,
                         disabled: !tempApiKey || tempApiKey.trim().length < 10,
-                        className: 'px-2 py-1 rounded text-xs font-semibold ' + (tempApiKey && tempApiKey.trim().length >= 10 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500 dark:text-gray-400')
+                        className: `px-2 py-1 rounded text-xs font-semibold ${tempApiKey && tempApiKey.trim().length >= 10 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500 dark:text-gray-400'}`
                     }, 'Save'),
                     React.createElement('button', {
                         onClick: handleCancelApiKey,
@@ -634,191 +349,248 @@
                 );
             }
 
-            // ===== THEME SWITCHER =====
-            const ThemeSwitcher = () => {
-                const { theme, setTheme, colorScheme, setColorScheme, colorSchemes } = useTheme();
-                const [showColorPicker, setShowColorPicker] = useState(false);
+            // Theme Switcher
+            const themeSwitcher = React.createElement('div', { className: 'flex items-center gap-2' },
+                React.createElement('button', {
+                    onClick: toggleTheme,
+                    className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                }, theme === 'light' ? '🌙' : '☀️'),
+                React.createElement('button', {
+                    onClick: () => {
+                        const colors = ['red', 'blue', 'green', 'purple', 'orange'];
+                        const next = colors[(colors.indexOf(color) + 1) % colors.length];
+                        setColor(next);
+                    },
+                    className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                }, '🎨')
+            );
 
-                const toggleTheme = () => setTheme(theme === 'light' ? 'dark' : 'light');
-                const getColorForScheme = (key) => {
-                    const colors = { red: '#dc2626', blue: '#2563eb', green: '#16a34a', purple: '#9333ea', orange: '#ea580c' };
-                    return colors[key] || '#dc2626';
-                };
-
-                return React.createElement('div', { className: 'flex items-center gap-2' },
-                    React.createElement('button', {
-                        onClick: toggleTheme,
-                        className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                    }, theme === 'light' ? '🌙' : '☀️'),
-                    React.createElement('div', { className: 'relative' },
-                        React.createElement('button', {
-                            onClick: () => setShowColorPicker(!showColorPicker),
-                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                        }, '🎨'),
-                        showColorPicker ? React.createElement(React.Fragment, null,
-                            React.createElement('div', { className: 'fixed inset-0 z-40', onClick: () => setShowColorPicker(false) }),
-                            React.createElement('div', { className: 'absolute right-0 mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 min-w-[200px]' },
-                                React.createElement('div', { className: 'text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 px-1' }, 'Choose Color Scheme'),
-                                React.createElement('div', { className: 'grid grid-cols-5 gap-2' },
-                                    Object.keys(colorSchemes).map(key =>
-                                        React.createElement('button', {
-                                            key: key,
-                                            onClick: () => { setColorScheme(key); setShowColorPicker(false); },
-                                            className: 'w-10 h-10 rounded-full transition-all transform hover:scale-110 ' + (colorScheme === key ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500 scale-110' : ''),
-                                            style: { backgroundColor: getColorForScheme(key) }
-                                        })
-                                    )
-                                ),
-                                React.createElement('div', { className: 'mt-2 text-center text-xs text-gray-500 dark:text-gray-400' },
-                                    'Current: ',
-                                    React.createElement('span', { className: 'font-semibold capitalize' }, colorScheme)
-                                )
-                            )
-                        ) : null
-                    )
-                );
-            };
-
-            // ===== MAIN LAYOUT =====
-            const activeDocExists = !!activeDocId;
-
+            // Main App UI
             return React.createElement('div', {
-                className: 'min-h-screen transition-colors duration-200 ' + (theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900') + ' font-sans flex flex-col'
+                className: `min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`
             },
                 // Header
                 React.createElement('header', {
-                    className: 'border-b transition-colors duration-200 p-3 shadow-sm flex justify-between items-center flex-shrink-0 ' + (theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200')
+                    className: `border-b p-3 flex justify-between items-center ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`
                 },
-                    React.createElement('h1', { className: 'font-serif text-xl font-bold ' + getColorClass('text') }, 'MyLLM Research Note'),
-                    React.createElement('div', { className: 'flex items-center gap-3 flex-wrap' },
+                    React.createElement('h1', { className: `font-serif text-xl font-bold ${getColorClass('text')}` }, 'MyLLM Research Note'),
+                    React.createElement('div', { className: 'flex items-center gap-3' },
                         apiKeyManager,
-                        React.createElement(ThemeSwitcher, null)
+                        themeSwitcher
                     )
                 ),
 
                 // Main Content
                 React.createElement('div', { className: 'flex flex-1 overflow-hidden' },
                     // Left Sidebar
-                    React.createElement(DocumentList, {
-                        documents: documents,
-                        activeDocId: activeDocId,
-                        onSelectDocument: handleSelectDocument,
-                        onUploadDocument: handleUploadDocument,
-                        onDeleteDocument: handleDeleteDocument
-                    }),
+                    React.createElement('aside', {
+                        className: `w-64 border-r ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} flex flex-col`
+                    },
+                        // Upload
+                        React.createElement('div', { className: 'p-3 border-b dark:border-gray-700 bg-white dark:bg-gray-800' },
+                            React.createElement('button', {
+                                onClick: () => document.getElementById('fileInput').click(),
+                                className: `w-full py-2 px-3 text-white rounded-lg flex items-center justify-center gap-2 ${getColorClass('bg')} ${getColorClass('hover')}`
+                            },
+                                React.createElement('span', null, '📄'),
+                                React.createElement('span', { className: 'text-sm font-semibold' }, 'Upload Document'),
+                                React.createElement('input', {
+                                    id: 'fileInput',
+                                    type: 'file',
+                                    className: 'hidden',
+                                    accept: '.pdf',
+                                    onChange: handleUpload,
+                                    multiple: true
+                                })
+                            ),
+                            React.createElement('p', { className: 'text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1' }, 'Upload one or multiple PDFs')
+                        ),
+                        // Library
+                        React.createElement('div', { className: 'flex-1 overflow-y-auto p-3' },
+                            React.createElement('div', { className: 'flex items-center gap-2 mb-2' },
+                                React.createElement('span', { className: 'text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400' }, '📚 Library (' + documents.length + ')')
+                            ),
+                            documents.length === 0 ?
+                            React.createElement('div', { className: 'text-gray-400 dark:text-gray-500 text-sm text-center mt-8' },
+                                React.createElement('div', { className: 'text-4xl mb-2' }, '📄'),
+                                React.createElement('p', null, 'No documents'),
+                                React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
+                            ) :
+                            React.createElement('div', null, docItems)
+                        )
+                    ),
 
                     // Center - PDF Viewer
                     React.createElement('main', {
-                        className: 'flex-1 flex flex-col overflow-hidden transition-colors duration-200 ' + (theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200')
+                        className: `flex-1 flex flex-col ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`
                     },
                         // Toolbar
                         React.createElement('div', {
-                            className: 'p-2 border-b transition-colors duration-200 flex justify-between items-center flex-shrink-0 ' + (theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200')
+                            className: `p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex justify-between items-center`
                         },
-                            React.createElement('span', { className: 'text-xs font-semibold uppercase tracking-wider ' + (theme === 'dark' ? 'text-gray-400' : 'text-gray-500') },
+                            React.createElement('span', { className: 'text-xs font-semibold text-gray-500 dark:text-gray-400' },
                                 activeDoc ? activeDoc.name : 'Document Viewer'
                             ),
-                            activeDoc ? React.createElement('div', { className: 'flex items-center gap-2 flex-wrap' },
+                            activeDoc ?
+                            React.createElement('div', { className: 'flex items-center gap-2' },
                                 React.createElement('button', {
-                                    onClick: toggleInteractMode,
-                                    className: 'p-1 rounded transition-colors ' + (interactMode ? 'bg-blue-500 text-white' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700')
-                                }, '✋'),
-                                React.createElement('button', { onClick: handleZoomIn, className: 'p-1 rounded transition-colors ' + (theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700') }, '➕'),
-                                React.createElement('button', { onClick: handleZoomOut, className: 'p-1 rounded transition-colors ' + (theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700') }, '➖'),
-                                React.createElement('button', { onClick: handleResetView, className: 'p-1 rounded transition-colors text-xs px-2 ' + (theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700') }, 'Reset'),
-                                React.createElement('span', { className: 'text-xs w-10 ' + (theme === 'dark' ? 'text-gray-300' : 'text-gray-700') }, (pdfScale * 100).toFixed(0) + '%'),
+                                    onClick: () => setPdfScale(Math.min(pdfScale + 0.2, 3)),
+                                    className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                }, '➕'),
                                 React.createElement('button', {
-                                    onClick: goToPreviousPage,
+                                    onClick: () => setPdfScale(Math.max(pdfScale - 0.2, 0.5)),
+                                    className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                }, '➖'),
+                                React.createElement('button', {
+                                    onClick: () => { setPdfScale(1.2); },
+                                    className: 'p-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-xs px-2 text-gray-700 dark:text-gray-300'
+                                }, 'Reset'),
+                                React.createElement('span', { className: 'text-xs w-10 text-gray-700 dark:text-gray-300' }, (pdfScale * 100).toFixed(0) + '%'),
+                                React.createElement('button', {
+                                    onClick: () => { if (currentPage > 1) setCurrentPage(currentPage - 1); },
                                     disabled: currentPage <= 1,
-                                    className: 'p-1 rounded transition-colors ' + (currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700')
+                                    className: `p-1 rounded ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'} text-gray-700 dark:text-gray-300`
                                 }, '◀'),
-                                React.createElement('span', { className: 'text-xs ' + (theme === 'dark' ? 'text-gray-300' : 'text-gray-700') }, currentPage + ' / ' + (numPages || '?')),
+                                React.createElement('span', { className: 'text-xs text-gray-700 dark:text-gray-300' }, currentPage + ' / ' + (numPages || '?')),
                                 React.createElement('button', {
-                                    onClick: goToNextPage,
+                                    onClick: () => { if (numPages && currentPage < numPages) setCurrentPage(currentPage + 1); },
                                     disabled: !numPages || currentPage >= numPages,
-                                    className: 'p-1 rounded transition-colors ' + (!numPages || currentPage >= numPages ? 'opacity-50 cursor-not-allowed' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700')
+                                    className: `p-1 rounded ${!numPages || currentPage >= numPages ? 'opacity-50 cursor-not-allowed' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'} text-gray-700 dark:text-gray-300`
                                 }, '▶')
-                            ) : null
+                            ) :
+                            null
                         ),
 
                         // Action Buttons
-                        activeDoc ? React.createElement('div', {
-                            className: 'p-2 border-b transition-colors duration-200 flex items-center gap-2 flex-shrink-0 ' + (theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200')
+                        activeDoc ?
+                        React.createElement('div', {
+                            className: `p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex items-center gap-2`
                         },
                             React.createElement('button', {
                                 onClick: () => setShowPresentation(true),
-                                className: 'px-4 py-1.5 rounded text-white text-sm font-semibold flex items-center gap-2 bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm'
+                                className: 'px-4 py-1.5 rounded text-white text-sm font-semibold bg-purple-600 hover:bg-purple-700'
                             }, '🎯 Create Presentation'),
                             React.createElement('button', {
                                 onClick: generateMindmap,
-                                disabled: isGeneratingMindmap || apiStatus !== 'valid',
-                                className: 'px-4 py-1.5 rounded text-white text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm ' + (isGeneratingMindmap || apiStatus !== 'valid' ? 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed' : getColorClass('bg') + ' ' + getColorClass('hover'))
-                            }, '🌳 ' + (isGeneratingMindmap ? 'Generating...' : 'Create Mindmap'))
-                        ) : null,
+                                className: `px-4 py-1.5 rounded text-white text-sm font-semibold ${getColorClass('bg')} ${getColorClass('hover')}`
+                            }, '🌳 Create Mindmap')
+                        ) :
+                        null,
 
                         // Viewer
-                        React.createElement('div', {
-                            ref: viewerRef,
-                            className: 'flex-1 overflow-auto relative',
-                            onMouseDown: (e) => {
-                                if (!interactMode) return;
-                                setIsDragging(true);
-                                setDragStartX(e.clientX - panX);
-                                setDragStartY(e.clientY - panY);
-                            },
-                            onMouseMove: (e) => {
-                                if (!isDragging || !interactMode) return;
-                                setPanX(e.clientX - dragStartX);
-                                setPanY(e.clientY - dragStartY);
-                            },
-                            onMouseUp: () => setIsDragging(false),
-                            onMouseLeave: () => setIsDragging(false)
-                        },
-                            React.createElement('div', { className: 'p-4 min-h-full flex items-center justify-center' },
-                                showPresentation && activeDoc ?
-                                    React.createElement(PresentationCreator, { doc: activeDoc, onClose: () => setShowPresentation(false) }) :
-                                showMindmap && mindmapData ?
-                                    React.createElement(MindmapViewer, { data: mindmapData, onClose: () => setShowMindmap(false) }) :
-                                activeDoc ?
-                                    React.createElement(PDFViewer, {
-                                        doc: activeDoc,
-                                        page: currentPage,
-                                        onPagesLoaded: (pages) => {
-                                            setNumPages(pages);
-                                            if (currentPage > pages) setCurrentPage(1);
-                                        },
-                                        scale: pdfScale,
-                                        panX: panX,
-                                        panY: panY,
-                                        isDragging: isDragging,
-                                        interactMode: interactMode
-                                    }) :
-                                    React.createElement('div', { className: 'italic text-center ' + (theme === 'dark' ? 'text-gray-500' : 'text-gray-400') },
-                                        React.createElement('div', { className: 'text-4xl mb-2' }, '📄'),
-                                        React.createElement('p', null, 'No document loaded'),
-                                        React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
+                        React.createElement('div', { className: 'flex-1 overflow-auto p-4 flex items-center justify-center' },
+                            showPresentation && activeDoc ?
+                            React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col items-center justify-center' },
+                                React.createElement('h2', { className: 'text-2xl font-bold text-gray-900 dark:text-gray-100' }, '🎯 Create Presentation'),
+                                React.createElement('p', { className: 'text-gray-500 dark:text-gray-400 mt-2' }, 'Generate slides from your document'),
+                                React.createElement('button', {
+                                    onClick: generatePresentation,
+                                    className: `mt-4 px-6 py-2 rounded text-white ${getColorClass('bg')} ${getColorClass('hover')}`
+                                }, 'Generate Slides'),
+                                React.createElement('button', {
+                                    onClick: () => setShowPresentation(false),
+                                    className: 'mt-2 px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300'
+                                }, 'Close')
+                            ) :
+                            showMindmap && mindmapData ?
+                            React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col' },
+                                React.createElement('div', { className: 'flex justify-between items-center p-3 border-b bg-gray-50 dark:bg-gray-700' },
+                                    React.createElement('h3', { className: 'font-bold text-lg text-gray-900 dark:text-gray-100' }, '🌳 Mindmap'),
+                                    React.createElement('button', {
+                                        onClick: () => setShowMindmap(false),
+                                        className: 'text-gray-500 hover:text-gray-700'
+                                    }, '✕')
+                                ),
+                                React.createElement('div', { className: 'flex-1 overflow-auto p-4' },
+                                    React.createElement('div', { className: 'flex flex-wrap gap-4' },
+                                        mindmapData.map(node =>
+                                            React.createElement('div', {
+                                                key: node.id,
+                                                className: 'p-4 rounded-lg shadow-md text-white',
+                                                style: { backgroundColor: node.color, marginLeft: node.parent ?
+                                                        '30px' : '0' }
+                                            }, node.label)
+                                        )
                                     )
+                                )
+                            ) :
+                            activeDoc ?
+                            React.createElement(PDFViewer, {
+                                doc: activeDoc,
+                                page: currentPage,
+                                onPagesLoaded: setNumPages,
+                                scale: pdfScale
+                            }) :
+                            React.createElement('div', { className: 'text-center text-gray-400 dark:text-gray-500' },
+                                React.createElement('div', { className: 'text-4xl mb-2' }, '📄'),
+                                React.createElement('p', null, 'No document loaded'),
+                                React.createElement('p', { className: 'text-xs mt-1' }, 'Upload a PDF to get started')
                             )
                         )
                     ),
 
                     // Right Sidebar - Chat
-                    React.createElement(ChatInterface, {
-                        messages: messages,
-                        input: input,
-                        setInput: setInput,
-                        sendMessage: sendMessage
-                    })
+                    React.createElement('aside', {
+                        className: `w-80 border-l ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex flex-col`
+                    },
+                        React.createElement('div', {
+                            className: `text-xs font-semibold text-gray-500 dark:text-gray-400 p-2 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} flex justify-between items-center`
+                        },
+                            React.createElement('span', null, '💬 Research Assistant'),
+                            apiStatus === 'valid' ?
+                            React.createElement('span', { className: 'text-xs text-green-600 dark:text-green-400' }, '✅ Online') :
+                            React.createElement('span', { className: 'text-xs text-yellow-600 dark:text-yellow-400' }, '⚠️ API Key Required')
+                        ),
+                        React.createElement('div', { className: 'flex-1 overflow-y-auto p-2 space-y-2' },
+                            messages.length === 0 ?
+                            React.createElement('div', { className: 'text-gray-400 dark:text-gray-500 text-sm text-center mt-4' },
+                                '💬 Ask me anything about your documents!'
+                            ) :
+                            chatMessages,
+                            React.createElement('div', { ref: useRef(null) })
+                        ),
+                        React.createElement('div', { className: 'p-2 border-t dark:border-gray-700' },
+                            React.createElement('div', { className: 'flex gap-2' },
+                                React.createElement('input', {
+                                    value: input,
+                                    onChange: (e) => setInput(e.target.value),
+                                    className: `flex-1 border p-2 rounded text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${apiStatus !== 'valid' ? 'cursor-not-allowed opacity-60' : ''}`,
+                                    placeholder: apiStatus === 'valid' ? 'Ask anything...' : 'Set API key first...',
+                                    onKeyPress: (e) => e.key === 'Enter' && sendMessage(),
+                                    disabled: apiStatus !== 'valid'
+                                }),
+                                React.createElement('button', {
+                                    onClick: sendMessage,
+                                    disabled: apiStatus !== 'valid',
+                                    className: `p-2 rounded text-white ${apiStatus === 'valid' ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'}`
+                                }, '➤')
+                            ),
+                            apiStatus !== 'valid' ?
+                            React.createElement('p', { className: 'text-xs text-yellow-600 dark:text-yellow-500 mt-1' },
+                                '⚠️ Please set a valid API key in the header'
+                            ) :
+                            null
+                        )
+                    )
                 )
             );
         }
 
-        // ===== WRAP WITH THEME PROVIDER =====
-        const WrappedApp = () => React.createElement(ThemeProvider, null, React.createElement(App));
-
         // ===== RENDER =====
-        const root = createRoot(document.getElementById('root'));
-        root.render(React.createElement(WrappedApp));
+        try {
+            const root = createRoot(document.getElementById('root'));
+            root.render(React.createElement(App));
+        } catch (error) {
+            console.error('Render error:', error);
+            document.getElementById('root').innerHTML = `
+                    <div style="padding:20px; text-align:center; font-family:system-ui; background:#f9fafb; height:100vh; display:flex; flex-direction:column; justify-content:center;">
+                        <div style="font-size:48px; margin-bottom:20px;">⚠️</div>
+                        <h2 style="color:#dc2626; margin-bottom:10px;">Something went wrong</h2>
+                        <p style="color:#6b7280;">${error.message}</p>
+                        <p style="color:#6b7280; font-size:12px; margin-top:20px;">Please check the console for details</p>
+                    </div>
+                `;
+        }
     </script>
 </body>
 </html>
