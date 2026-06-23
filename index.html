@@ -11,24 +11,7 @@
         }
     </script>
     <style>
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
-        .animate-bounce {
-            animation: bounce 0.6s infinite;
-        }
-        html, body, #root {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
+        html, body, #root { height: 100%; margin: 0; padding: 0; }
         .loading-spinner {
             border: 4px solid #f3f4f6;
             border-top: 4px solid #dc2626;
@@ -51,1025 +34,230 @@
         </div>
     </div>
 
-    <!-- React and ReactDOM from CDN -->
+    <!-- React and ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
-    <!-- Babel Standalone for JSX -->
+    <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- ===== SIMPLE APP ===== -->
     <script type="text/babel">
-        const { useState, useEffect, useRef, createContext, useContext } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // ===== GENERATE UNIQUE ID (FALLBACK FOR crypto.randomUUID) =====
-        const generateId = () => {
-            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                return crypto.randomUUID();
-            }
-            // Fallback for older browsers
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        };
-
-        // ===== ICON COMPONENTS =====
-        const Icons = {
-            Plus: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>,
-            Send: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
-            FileText: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
-            ChevronLeft: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>,
-            ChevronRight: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>,
-            GitBranch: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
-            ZoomIn: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>,
-            ZoomOut: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" /></svg>,
-            Move: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" /></svg>,
-            X: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>,
-            Key: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>,
-            CheckCircle: () => <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-            AlertCircle: () => <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
-            AlertTriangle: () => <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-            Presentation: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>,
-            Settings: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-            Library: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
-            Upload: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
-            Sun: () => <svg className="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
-            Moon: () => <svg className="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>,
-            Palette: () => <svg className="w-4 h-4 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>,
-        };
-
-        // ===== THEME CONTEXT =====
-        const ThemeContext = createContext();
-
-        const useTheme = () => {
-            const context = useContext(ThemeContext);
-            if (!context) {
-                throw new Error('useTheme must be used within a ThemeProvider');
-            }
-            return context;
-        };
-
-        // ===== THEME PROVIDER =====
-        const ThemeProvider = ({ children }) => {
-            const [theme, setTheme] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('app_theme');
-                    return saved || 'light';
-                } catch (e) {
-                    return 'light';
-                }
-            });
-            const [colorScheme, setColorScheme] = useState(() => {
-                try {
-                    const saved = localStorage.getItem('app_color_scheme');
-                    return saved || 'red';
-                } catch (e) {
-                    return 'red';
-                }
-            });
-
-            useEffect(() => {
-                try {
-                    localStorage.setItem('app_theme', theme);
-                    localStorage.setItem('app_color_scheme', colorScheme);
-                } catch (e) {}
-                
-                if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                }
-            }, [theme, colorScheme]);
-
-            const colorSchemes = {
-                red: {
-                    primary: 'bg-red-600',
-                    primaryHover: 'hover:bg-red-700',
-                    primaryLight: 'bg-red-50 dark:bg-red-900/20',
-                    primaryText: 'text-red-600 dark:text-red-400',
-                    primaryBorder: 'border-red-500',
-                    primaryDark: 'bg-red-700',
-                    ring: 'ring-red-600 dark:ring-red-500',
-                    bg: 'red',
-                    hex: '#dc2626',
-                },
-                blue: {
-                    primary: 'bg-blue-600',
-                    primaryHover: 'hover:bg-blue-700',
-                    primaryLight: 'bg-blue-50 dark:bg-blue-900/20',
-                    primaryText: 'text-blue-600 dark:text-blue-400',
-                    primaryBorder: 'border-blue-500',
-                    primaryDark: 'bg-blue-700',
-                    ring: 'ring-blue-600 dark:ring-blue-500',
-                    bg: 'blue',
-                    hex: '#2563eb',
-                },
-                green: {
-                    primary: 'bg-green-600',
-                    primaryHover: 'hover:bg-green-700',
-                    primaryLight: 'bg-green-50 dark:bg-green-900/20',
-                    primaryText: 'text-green-600 dark:text-green-400',
-                    primaryBorder: 'border-green-500',
-                    primaryDark: 'bg-green-700',
-                    ring: 'ring-green-600 dark:ring-green-500',
-                    bg: 'green',
-                    hex: '#16a34a',
-                },
-                purple: {
-                    primary: 'bg-purple-600',
-                    primaryHover: 'hover:bg-purple-700',
-                    primaryLight: 'bg-purple-50 dark:bg-purple-900/20',
-                    primaryText: 'text-purple-600 dark:text-purple-400',
-                    primaryBorder: 'border-purple-500',
-                    primaryDark: 'bg-purple-700',
-                    ring: 'ring-purple-600 dark:ring-purple-500',
-                    bg: 'purple',
-                    hex: '#9333ea',
-                },
-                orange: {
-                    primary: 'bg-orange-600',
-                    primaryHover: 'hover:bg-orange-700',
-                    primaryLight: 'bg-orange-50 dark:bg-orange-900/20',
-                    primaryText: 'text-orange-600 dark:text-orange-400',
-                    primaryBorder: 'border-orange-500',
-                    primaryDark: 'bg-orange-700',
-                    ring: 'ring-orange-600 dark:ring-orange-500',
-                    bg: 'orange',
-                    hex: '#ea580c',
-                },
-            };
-
-            const currentColors = colorSchemes[colorScheme] || colorSchemes.red;
-
-            return (
-                <ThemeContext.Provider value={{ 
-                    theme, 
-                    setTheme, 
-                    colorScheme, 
-                    setColorScheme,
-                    colors: currentColors,
-                    colorSchemes 
-                }}>
-                    {children}
-                </ThemeContext.Provider>
-            );
-        };
-
-        // ===== THEME SWITCHER =====
-        const ThemeSwitcher = () => {
-            const { theme, setTheme, colorScheme, setColorScheme, colorSchemes } = useTheme();
-            const [showColorPicker, setShowColorPicker] = useState(false);
-
-            const toggleTheme = () => {
-                setTheme(theme === 'light' ? 'dark' : 'light');
-            };
-
-            const getColorForScheme = (key) => {
-                const colors = {
-                    red: '#dc2626',
-                    blue: '#2563eb',
-                    green: '#16a34a',
-                    purple: '#9333ea',
-                    orange: '#ea580c'
-                };
-                return colors[key] || '#dc2626';
-            };
-
-            return (
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600"
-                    >
-                        {theme === 'light' ? <Icons.Moon /> : <Icons.Sun />}
-                    </button>
-                    
-                    <div className="relative">
-                        <button
-                            onClick={() => setShowColorPicker(!showColorPicker)}
-                            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-gray-200 dark:border-gray-600"
-                        >
-                            <Icons.Palette />
-                        </button>
-                        
-                        {showColorPicker && (
-                            <>
-                                <div className="fixed inset-0 z-40" onClick={() => setShowColorPicker(false)} />
-                                <div className="absolute right-0 mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50 min-w-[200px]">
-                                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 px-1">Choose Color Scheme</div>
-                                    <div className="grid grid-cols-5 gap-2">
-                                        {Object.keys(colorSchemes).map((key) => (
-                                            <button
-                                                key={key}
-                                                onClick={() => {
-                                                    setColorScheme(key);
-                                                    setShowColorPicker(false);
-                                                }}
-                                                className={`w-10 h-10 rounded-full transition-all transform hover:scale-110 ${
-                                                    colorScheme === key ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-500 scale-110' : ''
-                                                }`}
-                                                style={{ backgroundColor: getColorForScheme(key) }}
-                                            />
-                                        ))}
-                                    </div>
-                                    <div className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-                                        Current: <span className="font-semibold capitalize">{colorScheme}</span>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        // ===== API KEY MANAGER =====
-        const ApiKeyManager = ({ apiKey, setApiKey, status, setStatus }) => {
-            const { colors } = useTheme();
-            const [tempKey, setTempKey] = useState(apiKey);
-            const [isEditing, setIsEditing] = useState(false);
-
-            const validateApiKey = (key) => {
-                if (!key || key.trim() === '') {
-                    setStatus('idle');
-                    return false;
-                }
-                if (key.trim().length > 10) {
-                    setStatus('valid');
-                    return true;
-                } else {
-                    setStatus('invalid');
-                    return false;
-                }
-            };
-
-            const handleKeyChange = (e) => {
-                const newKey = e.target.value;
-                setTempKey(newKey);
-                if (newKey.trim() === '') {
-                    setStatus('idle');
-                } else if (newKey.trim().length > 10) {
-                    setStatus('valid');
-                } else {
-                    setStatus('invalid');
-                }
-            };
-
-            const handleSaveKey = () => {
-                if (validateApiKey(tempKey)) {
-                    setApiKey(tempKey);
-                    try { localStorage.setItem('gemini_api_key', tempKey); } catch(e) {}
-                    setIsEditing(false);
-                }
-            };
-
-            const handleCancel = () => {
-                setTempKey(apiKey);
-                setIsEditing(false);
-                validateApiKey(apiKey);
-            };
-
-            const handleRemoveKey = () => {
-                setApiKey('');
-                setTempKey('');
-                setStatus('idle');
-                try { localStorage.removeItem('gemini_api_key'); } catch(e) {}
-                setIsEditing(false);
-            };
-
-            const getStatusConfig = () => {
-                switch(status) {
-                    case 'valid':
-                        return {
-                            text: 'Connected',
-                            icon: <Icons.CheckCircle />,
-                            bgColor: 'bg-green-50 dark:bg-green-900/20',
-                            borderColor: 'border-green-500',
-                            textColor: 'text-green-700 dark:text-green-400'
-                        };
-                    case 'invalid':
-                        return {
-                            text: 'Invalid Key',
-                            icon: <Icons.AlertCircle />,
-                            bgColor: 'bg-red-50 dark:bg-red-900/20',
-                            borderColor: 'border-red-500',
-                            textColor: 'text-red-700 dark:text-red-400'
-                        };
-                    case 'idle':
-                    default:
-                        return {
-                            text: 'Not Set',
-                            icon: <Icons.AlertTriangle />,
-                            bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-                            borderColor: 'border-yellow-500',
-                            textColor: 'text-yellow-700 dark:text-yellow-400'
-                        };
-                }
-            };
-
-            const statusConfig = getStatusConfig();
-
-            if (!isEditing) {
-                return (
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <Icons.Key />
-                            <span className="text-xs text-gray-500 dark:text-gray-400">API Key:</span>
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${statusConfig.bgColor} ${statusConfig.borderColor} border`}>
-                            {statusConfig.icon}
-                            <span className={statusConfig.textColor}>{statusConfig.text}</span>
-                        </div>
-                        <button
-                            onClick={() => {
-                                setIsEditing(true);
-                                setTempKey(apiKey);
-                            }}
-                            className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors text-gray-700 dark:text-gray-300"
-                        >
-                            {apiKey ? 'Change' : 'Set Key'}
-                        </button>
-                        {apiKey && (
-                            <button
-                                onClick={handleRemoveKey}
-                                className="text-xs px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                            >
-                                Remove
-                            </button>
-                        )}
-                    </div>
-                );
-            }
-
-            return (
-                <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <Icons.Key />
-                    <input
-                        type="password"
-                        placeholder="Enter your Gemini API key"
-                        className="border p-1 text-xs rounded w-64 focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                        value={tempKey}
-                        onChange={handleKeyChange}
-                        autoFocus
-                        onKeyPress={(e) => e.key === 'Enter' && handleSaveKey()}
-                    />
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={handleSaveKey}
-                            disabled={!tempKey || tempKey.trim().length < 10}
-                            className={`px-2 py-1 rounded text-xs font-semibold transition-colors ${
-                                tempKey && tempKey.trim().length >= 10
-                                    ? 'bg-green-600 hover:bg-green-700 text-white'
-                                    : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500 dark:text-gray-400'
-                            }`}
-                        >
-                            Save
-                        </button>
-                        <button
-                            onClick={handleCancel}
-                            className="px-2 py-1 rounded text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-300"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            );
-        };
-
-        // ===== MAIN APP COMPONENT =====
-        function AppContent() {
-            const { theme, colors } = useTheme();
-            const [apiKey, setApiKey] = useState(() => {
-                try { return localStorage.getItem('gemini_api_key') || ''; } catch(e) { return ''; }
-            });
-            const [status, setStatus] = useState('idle'); 
+        // Simple App Component
+        function App() {
             const [documents, setDocuments] = useState([]);
-            const [activeDocId, setActiveDocId] = useState(null);
+            const [activeDoc, setActiveDoc] = useState(null);
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
-            const [currentPage, setCurrentPage] = useState(1);
-            const [numPages, setNumPages] = useState(0);
-            const [showMindmap, setShowMindmap] = useState(false);
-            const [mindmapData, setMindmapData] = useState(null);
-            const [showPresentation, setShowPresentation] = useState(false);
-            
-            const [pdfScale, setPdfScale] = useState(1.2);
-            const [panX, setPanX] = useState(0);
-            const [panY, setPanY] = useState(0);
-            const [isDragging, setIsDragging] = useState(false);
-            const [dragStartX, setDragStartX] = useState(0);
-            const [dragStartY, setDragStartY] = useState(0);
-            const [interactMode, setInteractMode] = useState(false);
-            
-            const viewerRef = useRef(null);
+            const [theme, setTheme] = useState('light');
+            const [color, setColor] = useState('red');
 
-            useEffect(() => {
-                if (apiKey && apiKey.trim().length > 10) {
-                    setStatus('valid');
-                } else if (apiKey && apiKey.trim().length > 0) {
-                    setStatus('invalid');
-                } else {
-                    setStatus('idle');
-                }
-            }, [apiKey]);
-
-            // Simplified PDF text extraction
-            const extractTextFromPDF = async (pdfData) => {
-                try {
-                    if (!window.pdfjsLib) return { fullText: '', pageTexts: [] };
-                    const loadingTask = window.pdfjsLib.getDocument(pdfData);
-                    const pdf = await loadingTask.promise;
-                    let fullText = '';
-                    let pageTexts = [];
-                    
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        pageTexts.push({ page: i, text: pageText });
-                        fullText += pageText + '\n';
-                    }
-                    
-                    return { fullText, pageTexts };
-                } catch (err) {
-                    console.error("Text extraction error:", err);
-                    return { fullText: '', pageTexts: [] };
-                }
+            // Toggle theme
+            const toggleTheme = () => {
+                const newTheme = theme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+                document.documentElement.classList.toggle('dark');
             };
 
-            // Handle upload
-            const handleUploadDocument = async (e) => {
-                const files = e.target.files;
-                if (!files || files.length === 0) return;
+            // Handle file upload
+            const handleUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
                 
-                for (const file of files) {
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        const pdfData = ev.target.result;
-                        const newDoc = { 
-                            id: generateId(), 
-                            name: file.name, 
-                            data: pdfData,
-                            text: '',
-                            pageTexts: []
-                        };
-                        
-                        const extracted = await extractTextFromPDF(pdfData);
-                        newDoc.text = extracted.fullText;
-                        newDoc.pageTexts = extracted.pageTexts;
-                        
-                        setDocuments(prev => [...prev, newDoc]);
-                        if (!activeDocId) {
-                            setActiveDocId(newDoc.id);
-                            setCurrentPage(1);
-                            setPanX(0);
-                            setPanY(0);
-                            setPdfScale(1.2);
-                        }
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const newDoc = {
+                        id: Date.now(),
+                        name: file.name,
+                        data: ev.target.result
                     };
-                    reader.readAsDataURL(file);
-                }
+                    setDocuments([...documents, newDoc]);
+                    setActiveDoc(newDoc);
+                };
+                reader.readAsDataURL(file);
                 e.target.value = '';
             };
 
-            const handleSelectDocument = (docId) => {
-                setActiveDocId(docId);
-                setCurrentPage(1);
-                setShowMindmap(false);
-                setShowPresentation(false);
-                setPanX(0);
-                setPanY(0);
-                setPdfScale(1.2);
-            };
-
-            const handleDeleteDocument = (docId) => {
-                setDocuments(prev => prev.filter(d => d.id !== docId));
-                if (activeDocId === docId) {
-                    setActiveDocId(documents.length > 1 ? documents.find(d => d.id !== docId)?.id || null : null);
-                    setNumPages(0);
-                }
-            };
-
-            const activeDoc = documents.find(d => d.id === activeDocId);
-
-            // Simple message handler
+            // Handle chat send
             const sendMessage = () => {
                 if (!input.trim()) return;
-                setMessages(prev => [...prev, { role: 'user', text: input }]);
+                setMessages([...messages, { role: 'user', text: input }]);
                 setTimeout(() => {
                     setMessages(prev => [...prev, { 
                         role: 'bot', 
-                        text: "This is a demo response. Please set up your Gemini API key to get real responses." 
+                        text: "This is a demo response. Your Gemini API key is not configured yet." 
                     }]);
                 }, 500);
                 setInput('');
             };
 
-            // Simple mindmap generator
-            const generateMindmap = () => {
-                const activeDoc = documents.find(d => d.id === activeDocId);
-                if (!activeDoc) {
-                    alert('Please upload a document first');
-                    return;
-                }
-                setMindmapData([
-                    { id: 'root', label: activeDoc.name.replace('.pdf', '').substring(0, 30), parent: null, color: colors.hex },
-                    { id: '1', label: 'Key Concept 1', parent: 'root', color: '#4CAF50' },
-                    { id: '2', label: 'Key Concept 2', parent: 'root', color: '#2196F3' },
-                    { id: '3', label: 'Key Concept 3', parent: 'root', color: '#FF9800' },
-                    { id: '1-1', label: 'Sub-concept A', parent: '1', color: '#8BC34A' },
-                    { id: '1-2', label: 'Sub-concept B', parent: '1', color: '#8BC34A' },
-                    { id: '2-1', label: 'Sub-concept C', parent: '2', color: '#64B5F6' },
-                    { id: '3-1', label: 'Sub-concept D', parent: '3', color: '#FFB74D' },
-                ]);
-                setShowMindmap(true);
+            const colorClasses = {
+                red: 'bg-red-600 hover:bg-red-700 text-red-600',
+                blue: 'bg-blue-600 hover:bg-blue-700 text-blue-600',
+                green: 'bg-green-600 hover:bg-green-700 text-green-600',
+                purple: 'bg-purple-600 hover:bg-purple-700 text-purple-600',
+                orange: 'bg-orange-600 hover:bg-orange-700 text-orange-600'
             };
 
-            // Simple presentation generator
-            const generatePresentation = () => {
-                const activeDoc = documents.find(d => d.id === activeDocId);
-                if (!activeDoc) {
-                    alert('Please upload a document first');
-                    return;
-                }
-                alert(`Generating presentation for: ${activeDoc.name}`);
-                setShowPresentation(false);
-            };
-
-            // PDF Viewer
-            const PDFViewer = ({ doc, page, onPagesLoaded, pdfScale }) => {
-                const [isLoading, setIsLoading] = useState(true);
-                const canvasRef = useRef(null);
-
-                useEffect(() => {
-                    let isMounted = true;
-                    if (!doc || !window.pdfjsLib) return;
-                    
-                    const render = async () => {
-                        try {
-                            setIsLoading(true);
-                            const loadingTask = window.pdfjsLib.getDocument(doc.data);
-                            const pdf = await loadingTask.promise;
-                            
-                            if (isMounted) {
-                                if (onPagesLoaded) onPagesLoaded(pdf.numPages);
-                            }
-                            
-                            const pdfPage = await pdf.getPage(page);
-                            const viewport = pdfPage.getViewport({ scale: pdfScale || 1.2 });
-                            const canvas = canvasRef.current;
-                            
-                            if (!canvas) {
-                                setIsLoading(false);
-                                return;
-                            }
-                            
-                            const context = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-                            context.clearRect(0, 0, canvas.width, canvas.width);
-                            
-                            await pdfPage.render({ 
-                                canvasContext: context, 
-                                viewport: viewport 
-                            }).promise;
-                            
-                            if (isMounted) {
-                                setIsLoading(false);
-                            }
-                        } catch (err) {
-                            console.error("PDF Render Error:", err);
-                            if (isMounted) {
-                                setIsLoading(false);
-                            }
-                        }
-                    };
-                    
-                    render();
-                    
-                    return () => {
-                        isMounted = false;
-                    };
-                }, [doc, page, pdfScale, onPagesLoaded]);
-                
-                return (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                        {isLoading && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 bg-opacity-75 z-10">
-                                <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${colors.primary}`}></div>
-                            </div>
-                        )}
-                        <canvas 
-                            ref={canvasRef} 
-                            className="shadow-2xl bg-white"
-                            style={{
-                                maxWidth: '100%',
-                                height: 'auto',
-                            }}
-                        />
-                    </div>
-                );
-            };
-
-            // Mindmap Viewer
-            const MindmapViewer = ({ data, onClose }) => {
-                if (!data || data.length === 0) {
-                    return (
-                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl flex flex-col items-center justify-center p-8">
-                            <div className="text-gray-400 dark:text-gray-500 text-center">
-                                <p>No mindmap data available</p>
-                            </div>
-                            <button onClick={onClose} className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded">
-                                Close
-                            </button>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col">
-                        <div className="flex justify-between items-center p-3 border-b bg-gray-50 dark:bg-gray-700">
-                            <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">Mindmap</h3>
-                            <button onClick={onClose} className="text-gray-500 hover:text-gray-700"><Icons.X /></button>
-                        </div>
-                        <div className="flex-1 overflow-auto p-4">
-                            <div className="flex flex-wrap gap-4">
-                                {data.map((node) => (
-                                    <div 
-                                        key={node.id}
-                                        className="p-4 rounded-lg shadow-md text-white"
-                                        style={{ 
-                                            backgroundColor: node.color,
-                                            marginLeft: node.parent ? '30px' : '0'
-                                        }}
-                                    >
-                                        {node.label}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            // Document List Component
-            const DocumentList = ({ documents, activeDocId, onSelectDocument, onUploadDocument, onDeleteDocument }) => {
-                const fileInputRef = useRef(null);
-
-                return (
-                    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-                        <div className="p-3 border-b dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0">
-                            <button 
-                                onClick={() => fileInputRef.current?.click()}
-                                className={`w-full py-2 px-3 text-white rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm ${colors.primary} ${colors.primaryHover}`}
-                            >
-                                <Icons.Upload />
-                                <span className="text-sm font-semibold">Upload Document</span>
-                                <input 
-                                    ref={fileInputRef}
-                                    type="file" 
-                                    className="hidden" 
-                                    accept=".pdf" 
-                                    onChange={onUploadDocument}
-                                    multiple
-                                />
-                            </button>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1">Upload one or multiple PDFs</p>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Icons.Library />
-                                <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Library ({documents.length})</span>
-                            </div>
-                            
-                            {documents.length === 0 && (
-                                <div className="text-gray-400 dark:text-gray-500 text-sm text-center mt-8">
-                                    <Icons.FileText />
-                                    <p className="mt-2">No documents in library</p>
-                                    <p className="text-xs mt-1">Upload a PDF to get started</p>
-                                </div>
-                            )}
-                            
-                            <div className="space-y-2">
-                                {documents.map(d => (
-                                    <div key={d.id} className="group relative">
-                                        <button 
-                                            onClick={() => onSelectDocument(d.id)} 
-                                            className={`w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 transition-all ${
-                                                activeDocId === d.id 
-                                                    ? `${colors.primary} text-white border-${colors.bg}-600 shadow-md` 
-                                                    : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'
-                                            }`}
-                                        >
-                                            <Icons.FileText />
-                                            <span className="truncate flex-1">{d.name}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => onDeleteDocument(d.id)}
-                                            className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity ${colors.primaryText}`}
-                                        >
-                                            <Icons.X />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            // Chat Interface Component
-            const ChatInterface = ({ messages, input, setInput, sendMessage }) => {
-                const messagesEndRef = useRef(null);
-
-                useEffect(() => {
-                    if (messagesEndRef.current) {
-                        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                    }
-                }, [messages]);
-
-                return (
-                    <div className="flex flex-col h-full bg-white dark:bg-gray-800 overflow-hidden">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 p-2 border-b dark:border-gray-700 flex justify-between items-center flex-shrink-0">
-                            <span>Research Assistant</span>
-                            {status !== 'valid' && (
-                                <span className="text-xs text-yellow-600 dark:text-yellow-500">⚠ API Key Required</span>
-                            )}
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                            {messages.length === 0 && (
-                                <div className="text-gray-400 dark:text-gray-500 text-sm text-center mt-4">
-                                    💬 Ask me anything about your documents!
-                                </div>
-                            )}
-                            {messages.map((m, i) => (
-                                <div key={i} className={`p-2 rounded text-sm ${m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4'}`}>
-                                    {m.text}
-                                </div>
-                            ))}
-                            <div ref={messagesEndRef} />
-                        </div>
-                        
-                        <div className="p-2 border-t dark:border-gray-700 flex-shrink-0">
-                            <div className="flex gap-2">
-                                <input 
-                                    value={input} 
-                                    onChange={(e) => setInput(e.target.value)} 
-                                    className={`flex-1 border p-2 rounded text-sm focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${
-                                        status === 'valid' ? `focus:ring-${colors.bg}-600` : 'focus:ring-yellow-400 cursor-not-allowed'
-                                    }`}
-                                    placeholder={status === 'valid' ? "Ask anything..." : "Please set a valid API key first"}
-                                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                                    disabled={status !== 'valid'}
-                                />
-                                <button 
-                                    onClick={sendMessage} 
-                                    disabled={status !== 'valid'} 
-                                    className={`p-2 rounded transition-colors text-white ${
-                                        status === 'valid' ? `${colors.primary} ${colors.primaryHover}` : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                                    }`}
-                                >
-                                    <Icons.Send />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
+            const getColorClass = (type) => {
+                const c = colorClasses[color] || colorClasses.red;
+                return type === 'bg' ? c.split(' ')[0] : c.split(' ')[2];
             };
 
             return (
-                <div className={`min-h-screen transition-colors duration-200 ${
-                    theme === 'dark' 
-                        ? 'bg-gray-900 text-gray-100' 
-                        : 'bg-gray-50 text-gray-900'
-                } font-sans flex flex-col`}>
-                    <header className={`border-b transition-colors duration-200 p-3 shadow-sm flex justify-between items-center flex-shrink-0 ${
-                        theme === 'dark'
-                            ? 'bg-gray-800 border-gray-700'
-                            : 'bg-white border-gray-200'
-                    }`}>
-                        <h1 className={`font-serif text-xl font-bold ${colors.primaryText}`}>MyLLM Research Note</h1>
+                <div className={`min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+                    {/* Header */}
+                    <header className={`border-b p-3 flex justify-between items-center ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                        <h1 className={`font-serif text-xl font-bold ${getColorClass('text')}`}>MyLLM Research Note</h1>
                         <div className="flex items-center gap-3">
-                            <ThemeSwitcher />
-                            <ApiKeyManager 
-                                apiKey={apiKey}
-                                setApiKey={setApiKey}
-                                status={status}
-                                setStatus={setStatus}
-                            />
+                            <button 
+                                onClick={toggleTheme}
+                                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                            >
+                                {theme === 'light' ? '🌙' : '☀️'}
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    const colors = ['red', 'blue', 'green', 'purple', 'orange'];
+                                    const next = colors[(colors.indexOf(color) + 1) % colors.length];
+                                    setColor(next);
+                                }}
+                                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                            >
+                                🎨
+                            </button>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">API Key: Not Set</span>
                         </div>
                     </header>
 
+                    {/* Main Content */}
                     <div className="flex flex-1 overflow-hidden">
-                        {/* Left Sidebar - Document List */}
-                        <aside className={`w-64 border-r transition-colors duration-200 flex-shrink-0 overflow-hidden ${
-                            theme === 'dark'
-                                ? 'bg-gray-900 border-gray-700'
-                                : 'bg-gray-50 border-gray-200'
-                        }`}>
-                            <DocumentList 
-                                documents={documents}
-                                activeDocId={activeDocId}
-                                onSelectDocument={handleSelectDocument}
-                                onUploadDocument={handleUploadDocument}
-                                onDeleteDocument={handleDeleteDocument}
-                            />
+                        {/* Left Sidebar */}
+                        <aside className={`w-64 border-r ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} flex flex-col`}>
+                            <div className="p-3 border-b dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <button 
+                                    onClick={() => document.getElementById('fileInput').click()}
+                                    className={`w-full py-2 px-3 text-white rounded-lg flex items-center justify-center gap-2 ${getColorClass('bg')}`}
+                                >
+                                    <span>📄</span>
+                                    <span className="text-sm font-semibold">Upload Document</span>
+                                    <input id="fileInput" type="file" className="hidden" accept=".pdf" onChange={handleUpload} />
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-3">
+                                <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Library ({documents.length})</div>
+                                {documents.length === 0 && (
+                                    <div className="text-gray-400 dark:text-gray-500 text-sm text-center mt-8">
+                                        <div className="text-4xl mb-2">📄</div>
+                                        <p>No documents</p>
+                                        <p className="text-xs mt-1">Upload a PDF to get started</p>
+                                    </div>
+                                )}
+                                {documents.map(d => (
+                                    <button 
+                                        key={d.id}
+                                        onClick={() => setActiveDoc(d)}
+                                        className={`w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${activeDoc?.id === d.id ? `${getColorClass('bg')} text-white` : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`}
+                                    >
+                                        <span>📄</span>
+                                        <span className="truncate">{d.name}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </aside>
 
                         {/* Center - PDF Viewer */}
-                        <main className={`flex-1 flex flex-col overflow-hidden transition-colors duration-200 ${
-                            theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'
-                        }`}>
-                            <div className={`p-2 border-b transition-colors duration-200 flex justify-between items-center flex-shrink-0 ${
-                                theme === 'dark'
-                                    ? 'bg-gray-800 border-gray-700'
-                                    : 'bg-white border-gray-200'
-                            }`}>
-                                <span className={`text-xs font-semibold uppercase tracking-wider ${
-                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                }`}>
+                        <main className={`flex-1 flex flex-col ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                            <div className={`p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex justify-between items-center`}>
+                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                                     {activeDoc ? activeDoc.name : 'Document Viewer'}
                                 </span>
                                 {activeDoc && (
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <button 
-                                            onClick={() => setInteractMode(!interactMode)}
-                                            className={`p-1 rounded transition-colors ${interactMode ? 'bg-blue-500 text-white' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
-                                        >
-                                            <Icons.Move />
-                                        </button>
-                                        <button onClick={() => setPdfScale(Math.min(pdfScale + 0.2, 4))} className={`p-1 rounded transition-colors ${
-                                            theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                        }`}>
-                                            <Icons.ZoomIn />
-                                        </button>
-                                        <button onClick={() => setPdfScale(Math.max(pdfScale - 0.2, 0.5))} className={`p-1 rounded transition-colors ${
-                                            theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                        }`}>
-                                            <Icons.ZoomOut />
-                                        </button>
-                                        <button onClick={() => { setPdfScale(1.2); setPanX(0); setPanY(0); }} className={`p-1 rounded transition-colors text-xs px-2 ${
-                                            theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                        }`}>
-                                            Reset
-                                        </button>
-                                        <span className={`text-xs w-10 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {(pdfScale * 100).toFixed(0)}%
-                                        </span>
-                                        <button 
-                                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
-                                            disabled={currentPage <= 1}
-                                            className={`p-1 rounded transition-colors ${
-                                                currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                            }`}
-                                        >
-                                            <Icons.ChevronLeft />
-                                        </button>
-                                        <span className={`text-xs ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {currentPage} / {numPages || '?'}
-                                        </span>
-                                        <button 
-                                            onClick={() => setCurrentPage(Math.min(numPages || 1, currentPage + 1))} 
-                                            disabled={currentPage >= numPages || numPages === 0}
-                                            className={`p-1 rounded transition-colors ${
-                                                currentPage >= numPages || numPages === 0 ? 'opacity-50 cursor-not-allowed' : theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                                            }`}
-                                        >
-                                            <Icons.ChevronRight />
-                                        </button>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs">Page 1 / 1</span>
                                     </div>
                                 )}
                             </div>
 
                             {/* Action Buttons */}
                             {activeDoc && (
-                                <div className={`p-2 border-b transition-colors duration-200 flex items-center gap-2 flex-shrink-0 ${
-                                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                                }`}>
-                                    <button 
-                                        onClick={() => setShowPresentation(true)}
-                                        className="px-4 py-1.5 rounded text-white text-sm font-semibold flex items-center gap-2 bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm"
-                                    >
-                                        <Icons.Presentation />
-                                        Create Presentation
+                                <div className={`p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex items-center gap-2`}>
+                                    <button className="px-4 py-1.5 rounded text-white text-sm font-semibold bg-purple-600 hover:bg-purple-700">
+                                        🎯 Create Presentation
                                     </button>
-                                    
-                                    <button 
-                                        onClick={generateMindmap}
-                                        className={`px-4 py-1.5 rounded text-white text-sm font-semibold flex items-center gap-2 transition-colors shadow-sm ${colors.primary} ${colors.primaryHover}`}
-                                    >
-                                        <Icons.GitBranch />
-                                        Create Mindmap
+                                    <button className={`px-4 py-1.5 rounded text-white text-sm font-semibold ${getColorClass('bg')}`}>
+                                        🌳 Create Mindmap
                                     </button>
                                 </div>
                             )}
 
                             {/* Viewer Content */}
-                            <div 
-                                ref={viewerRef}
-                                className="flex-1 overflow-auto relative"
-                                onMouseDown={(e) => {
-                                    if (!interactMode) return;
-                                    setIsDragging(true);
-                                    setDragStartX(e.clientX - panX);
-                                    setDragStartY(e.clientY - panY);
-                                }}
-                                onMouseMove={(e) => {
-                                    if (!isDragging || !interactMode) return;
-                                    setPanX(e.clientX - dragStartX);
-                                    setPanY(e.clientY - dragStartY);
-                                }}
-                                onMouseUp={() => setIsDragging(false)}
-                                onMouseLeave={() => setIsDragging(false)}
-                            >
-                                <div className="p-4 min-h-full flex items-center justify-center">
-                                    {showPresentation && activeDoc ? (
-                                        <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col items-center justify-center">
-                                            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create Presentation</h2>
-                                            <p className="text-gray-500 dark:text-gray-400 mt-2">Generate slides from your document</p>
-                                            <button 
-                                                onClick={generatePresentation}
-                                                className={`mt-4 px-6 py-2 rounded text-white ${colors.primary} ${colors.primaryHover}`}
-                                            >
-                                                Generate Slides
-                                            </button>
-                                            <button 
-                                                onClick={() => setShowPresentation(false)}
-                                                className="mt-2 px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300"
-                                            >
-                                                Close
-                                            </button>
-                                        </div>
-                                    ) : showMindmap && mindmapData ? (
-                                        <MindmapViewer 
-                                            data={mindmapData} 
-                                            onClose={() => setShowMindmap(false)}
-                                        />
-                                    ) : (
-                                        activeDoc ? (
-                                            <PDFViewer 
-                                                doc={activeDoc}
-                                                page={currentPage}
-                                                onPagesLoaded={(pages) => {
-                                                    setNumPages(pages);
-                                                    if (currentPage > pages) setCurrentPage(1);
-                                                }}
-                                                pdfScale={pdfScale}
-                                            />
-                                        ) : (
-                                            <div className={`italic text-center ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                <Icons.FileText />
-                                                <p className="mt-2">No document loaded</p>
-                                                <p className="text-xs mt-1">Upload a PDF to get started</p>
-                                            </div>
-                                        )
-                                    )}
-                                </div>
+                            <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+                                {activeDoc ? (
+                                    <div className="bg-white dark:bg-gray-700 rounded-lg shadow-xl p-8 text-center">
+                                        <div className="text-6xl mb-4">📄</div>
+                                        <p className="text-gray-600 dark:text-gray-300">{activeDoc.name}</p>
+                                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">PDF loaded successfully!</p>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">(PDF rendering requires additional setup)</p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center text-gray-400 dark:text-gray-500">
+                                        <div className="text-6xl mb-4">📄</div>
+                                        <p>No document loaded</p>
+                                        <p className="text-xs mt-1">Upload a PDF to get started</p>
+                                    </div>
+                                )}
                             </div>
                         </main>
 
                         {/* Right Sidebar - Chat */}
-                        <aside className={`w-80 border-l transition-colors duration-200 flex-shrink-0 overflow-hidden ${
-                            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                        }`}>
-                            <ChatInterface 
-                                messages={messages}
-                                input={input}
-                                setInput={setInput}
-                                sendMessage={sendMessage}
-                            />
+                        <aside className={`w-80 border-l ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex flex-col`}>
+                            <div className={`text-xs font-semibold text-gray-500 dark:text-gray-400 p-2 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                                💬 Research Assistant
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                                {messages.length === 0 && (
+                                    <div className="text-gray-400 dark:text-gray-500 text-sm text-center mt-4">
+                                        Ask me anything about your documents!
+                                    </div>
+                                )}
+                                {messages.map((m, i) => (
+                                    <div key={i} className={`p-2 rounded text-sm ${m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4'}`}>
+                                        {m.text}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-2 border-t dark:border-gray-700">
+                                <div className="flex gap-2">
+                                    <input 
+                                        value={input} 
+                                        onChange={(e) => setInput(e.target.value)} 
+                                        className="flex-1 border p-2 rounded text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                                        placeholder="Ask anything..."
+                                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                                    />
+                                    <button 
+                                        onClick={sendMessage} 
+                                        className={`p-2 rounded text-white ${getColorClass('bg')}`}
+                                    >
+                                        ➤
+                                    </button>
+                                </div>
+                            </div>
                         </aside>
                     </div>
                 </div>
             );
         }
 
-        // ===== WRAPPED APP =====
-        const App = () => (
-            <ThemeProvider>
-                <AppContent />
-            </ThemeProvider>
-        );
-
-        // ===== RENDER =====
-        try {
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
-        } catch (error) {
-            console.error('Error rendering app:', error);
-            document.getElementById('root').innerHTML = `
-                <div style="padding:20px; text-align:center; font-family:system-ui;">
-                    <h2 style="color:#dc2626;">Something went wrong</h2>
-                    <p style="color:#6b7280;">Please check the console for errors.</p>
-                    <p style="color:#6b7280; font-size:12px;">${error.message}</p>
-                </div>
-            `;
-        }
+        // Render
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
