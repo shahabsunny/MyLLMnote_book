@@ -9,9 +9,7 @@
         tailwind.config = { darkMode: 'class' }
     </script>
     <style>
-        html,
-        body,
-        #root {
+        html, body, #root {
             height: 100%;
             margin: 0;
             padding: 0;
@@ -25,12 +23,8 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         .status-dot {
             display: inline-block;
@@ -39,14 +33,21 @@
             border-radius: 50%;
             margin-right: 4px;
         }
-        .status-dot.green {
-            background-color: #22c55e;
+        .status-dot.green { background-color: #22c55e; }
+        .status-dot.red { background-color: #ef4444; }
+        .status-dot.yellow { background-color: #eab308; }
+        .pdf-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
         }
-        .status-dot.red {
-            background-color: #ef4444;
-        }
-        .status-dot.yellow {
-            background-color: #eab308;
+        .pdf-container canvas {
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
     </style>
 </head>
@@ -59,31 +60,38 @@
     </div>
 
     <!-- React and ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js">
-    </script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js">
-    </script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
     <!-- PDF.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Initialize PDF.js worker
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
     </script>
 
-    <!-- ===== SIMPLE WORKING APP - NO JSX, NO BABEL ===== -->
     <script>
-        // Get React and ReactDOM from global scope
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
 
-        // ===== SIMPLE APP =====
         function App() {
             const [documents, setDocuments] = useState([]);
-            const [activeDoc, setActiveDoc] = useState(null);
+            const [activeDocId, setActiveDocId] = useState(null);
             const [messages, setMessages] = useState([]);
             const [input, setInput] = useState('');
             const [theme, setTheme] = useState('light');
             const [color, setColor] = useState('red');
-            const [apiKey, setApiKey] = useState('');
-            const [apiStatus, setApiStatus] = useState('idle');
+            const [apiKey, setApiKey] = useState(() => {
+                try { return localStorage.getItem('gemini_api_key') || ''; } catch(e) { return ''; }
+            });
+            const [apiStatus, setApiStatus] = useState(() => {
+                const key = localStorage.getItem('gemini_api_key') || '';
+                if (!key) return 'idle';
+                if (key.length > 10) return 'valid';
+                return 'invalid';
+            });
             const [showApiInput, setShowApiInput] = useState(false);
             const [tempApiKey, setTempApiKey] = useState('');
             const [currentPage, setCurrentPage] = useState(1);
@@ -92,40 +100,18 @@
             const [showMindmap, setShowMindmap] = useState(false);
             const [mindmapData, setMindmapData] = useState(null);
             const [showPresentation, setShowPresentation] = useState(false);
+            const [isGenerating, setIsGenerating] = useState(false);
 
-            // ===== THEME FUNCTIONS =====
-            const toggleTheme = () => {
-                const newTheme = theme === 'light' ? 'dark' : 'light';
-                setTheme(newTheme);
-                document.documentElement.classList.toggle('dark');
-            };
-
-            // ===== COLOR FUNCTIONS =====
-            const getColorClass = (type) => {
-                const colors = {
-                    red: { bg: 'bg-red-600', hover: 'hover:bg-red-700', text: 'text-red-600' },
-                    blue: { bg: 'bg-blue-600', hover: 'hover:bg-blue-700', text: 'text-blue-600' },
-                    green: { bg: 'bg-green-600', hover: 'hover:bg-green-700', text: 'text-green-600' },
-                    purple: { bg: 'bg-purple-600', hover: 'hover:bg-purple-700', text: 'text-purple-600' },
-                    orange: { bg: 'bg-orange-600', hover: 'hover:bg-orange-700', text: 'text-orange-600' }
-                };
-                const c = colors[color] || colors.red;
-                return type === 'bg' ? c.bg : type === 'hover' ? c.hover : c.text;
-            };
-
+            // ===== API KEY FUNCTIONS =====
             const getStatusConfig = () => {
                 switch (apiStatus) {
-                    case 'valid':
-                        return { dot: 'green', text: 'Connected' };
-                    case 'invalid':
-                        return { dot: 'red', text: 'Invalid Key' };
-                    default:
-                        return { dot: 'yellow', text: 'Not Set' };
+                    case 'valid': return { dot: 'green', text: 'Connected' };
+                    case 'invalid': return { dot: 'red', text: 'Invalid Key' };
+                    default: return { dot: 'yellow', text: 'Not Set' };
                 }
             };
             const statusConfig = getStatusConfig();
 
-            // ===== API KEY FUNCTIONS =====
             const handleApiKeyChange = (e) => {
                 const newKey = e.target.value;
                 setTempApiKey(newKey);
@@ -159,20 +145,68 @@
                 setShowApiInput(false);
             };
 
+            // ===== THEME FUNCTIONS =====
+            const toggleTheme = () => {
+                const newTheme = theme === 'light' ? 'dark' : 'light';
+                setTheme(newTheme);
+                document.documentElement.classList.toggle('dark');
+            };
+
+            const getColorClass = (type) => {
+                const colors = {
+                    red: { bg: 'bg-red-600', hover: 'hover:bg-red-700', text: 'text-red-600' },
+                    blue: { bg: 'bg-blue-600', hover: 'hover:bg-blue-700', text: 'text-blue-600' },
+                    green: { bg: 'bg-green-600', hover: 'hover:bg-green-700', text: 'text-green-600' },
+                    purple: { bg: 'bg-purple-600', hover: 'hover:bg-purple-700', text: 'text-purple-600' },
+                    orange: { bg: 'bg-orange-600', hover: 'hover:bg-orange-700', text: 'text-orange-600' }
+                };
+                const c = colors[color] || colors.red;
+                return type === 'bg' ? c.bg : type === 'hover' ? c.hover : c.text;
+            };
+
             // ===== DOCUMENT FUNCTIONS =====
-            const handleUpload = (e) => {
+            const extractTextFromPDF = async (pdfData) => {
+                try {
+                    if (!window.pdfjsLib) return { fullText: '', pageTexts: [] };
+                    const loadingTask = window.pdfjsLib.getDocument(pdfData);
+                    const pdf = await loadingTask.promise;
+                    let fullText = '';
+                    let pageTexts = [];
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        pageTexts.push({ page: i, text: pageText });
+                        fullText += pageText + '\n';
+                    }
+                    return { fullText, pageTexts };
+                } catch (err) {
+                    console.error("Text extraction error:", err);
+                    return { fullText: '', pageTexts: [] };
+                }
+            };
+
+            const handleUpload = async (e) => {
                 const files = e.target.files;
                 if (!files || files.length === 0) return;
                 for (const file of files) {
                     const reader = new FileReader();
-                    reader.onload = (ev) => {
+                    reader.onload = async (ev) => {
+                        const pdfData = ev.target.result;
+                        const extracted = await extractTextFromPDF(pdfData);
                         const newDoc = {
                             id: Date.now() + Math.random() * 1000,
                             name: file.name,
-                            data: ev.target.result
+                            data: pdfData,
+                            text: extracted.fullText,
+                            pageTexts: extracted.pageTexts
                         };
                         setDocuments(prev => [...prev, newDoc]);
-                        if (!activeDoc) setActiveDoc(newDoc);
+                        if (!activeDocId) {
+                            setActiveDocId(newDoc.id);
+                            setCurrentPage(1);
+                            setNumPages(0);
+                        }
                     };
                     reader.readAsDataURL(file);
                 }
@@ -181,56 +215,14 @@
 
             const handleDelete = (docId) => {
                 setDocuments(prev => prev.filter(d => d.id !== docId));
-                if (activeDoc && activeDoc.id === docId) {
+                if (activeDocId === docId) {
                     const remaining = documents.filter(d => d.id !== docId);
-                    setActiveDoc(remaining.length > 0 ? remaining[0] : null);
+                    setActiveDocId(remaining.length > 0 ? remaining[0].id : null);
+                    setNumPages(0);
                 }
             };
 
-            // ===== CHAT FUNCTIONS =====
-            const sendMessage = () => {
-                if (!input.trim()) return;
-                setMessages(prev => [...prev, { role: 'user', text: input }]);
-                setTimeout(() => {
-                    setMessages(prev => [...prev, {
-                        role: 'bot',
-                        text: apiStatus === 'valid' ?
-                            "✅ API Key is valid! This is a demo response. The full Gemini integration is ready." :
-                            "⚠️ Please set a valid API key in the header to use the Gemini integration."
-                    }]);
-                }, 500);
-                setInput('');
-            };
-
-            // ===== MINDMAP FUNCTIONS =====
-            const generateMindmap = () => {
-                if (!activeDoc) {
-                    alert('Please upload a document first');
-                    return;
-                }
-                setMindmapData([
-                    { id: 'root', label: activeDoc.name.replace('.pdf', '').substring(0, 30), parent: null,
-                    color: '#dc2626' },
-                    { id: '1', label: 'Key Concept 1', parent: 'root', color: '#4CAF50' },
-                    { id: '2', label: 'Key Concept 2', parent: 'root', color: '#2196F3' },
-                    { id: '3', label: 'Key Concept 3', parent: 'root', color: '#FF9800' },
-                    { id: '1-1', label: 'Sub-concept A', parent: '1', color: '#8BC34A' },
-                    { id: '1-2', label: 'Sub-concept B', parent: '1', color: '#8BC34A' },
-                    { id: '2-1', label: 'Sub-concept C', parent: '2', color: '#64B5F6' },
-                    { id: '3-1', label: 'Sub-concept D', parent: '3', color: '#FFB74D' },
-                ]);
-                setShowMindmap(true);
-            };
-
-            // ===== PRESENTATION FUNCTIONS =====
-            const generatePresentation = () => {
-                if (!activeDoc) {
-                    alert('Please upload a document first');
-                    return;
-                }
-                alert(`Generating presentation for: ${activeDoc.name}`);
-                setShowPresentation(false);
-            };
+            const activeDoc = documents.find(d => d.id === activeDocId);
 
             // ===== PDF VIEWER =====
             function PDFViewer({ doc, page, onPagesLoaded, scale }) {
@@ -269,53 +261,91 @@
                     return () => { isMounted = false; };
                 }, [doc, page, scale, onPagesLoaded]);
 
-                return React.createElement('div', { className: 'relative w-full h-full flex items-center justify-center' },
+                return React.createElement('div', { className: 'pdf-container' },
                     isLoading ? React.createElement('div', { className: 'loading-spinner' }) : null,
                     React.createElement('canvas', {
                         ref: canvasRef,
-                        className: 'shadow-2xl bg-white',
-                        style: { maxWidth: '100%', height: 'auto', display: isLoading ? 'none' : 'block' }
+                        style: { display: isLoading ? 'none' : 'block' }
                     })
                 );
             }
 
-            // ===== BUILD UI WITH createElement =====
+            // ===== CHAT FUNCTIONS =====
+            const sendMessage = async () => {
+                if (!input.trim()) return;
 
-            // Chat messages
-            const chatMessages = messages.map((m, i) => {
-                return React.createElement('div', {
-                    key: i,
-                    className: `p-2 rounded text-sm ${m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4'}`
-                }, m.text);
-            });
+                const userMsg = { role: 'user', text: input };
+                setMessages(prev => [...prev, userMsg]);
+                const currentInput = input;
+                setInput('');
+                setIsGenerating(true);
 
-            // Document list items
-            const docItems = documents.map(d => {
-                const isActive = activeDoc && activeDoc.id === d.id;
-                return React.createElement('div', { key: d.id, className: 'group relative' },
-                    React.createElement('button', {
-                        onClick: () => setActiveDoc(d),
-                        className: `w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${isActive ? getColorClass('bg') + ' text-white' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`
-                    },
-                        React.createElement('span', null, '📄'),
-                        React.createElement('span', { className: 'truncate flex-1' }, d.name)
-                    ),
-                    React.createElement('button', {
-                        onClick: () => handleDelete(d.id),
-                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
-                    }, '✕')
-                );
-            });
+                try {
+                    if (apiStatus !== 'valid') {
+                        setMessages(prev => [...prev, {
+                            role: 'bot',
+                            text: "⚠️ Please set a valid API key in the header to use the Gemini integration."
+                        }]);
+                        setIsGenerating(false);
+                        return;
+                    }
 
-            // API Key Manager UI
+                    // Simple response without API call for demo
+                    setTimeout(() => {
+                        setMessages(prev => [...prev, {
+                            role: 'bot',
+                            text: `✅ You asked: "${currentInput}"\n\nThis is a demo response. To get real AI responses, you need a valid Gemini API key. The app is ready to connect to Gemini!`
+                        }]);
+                        setIsGenerating(false);
+                    }, 500);
+
+                } catch (err) {
+                    console.error("Error:", err);
+                    setMessages(prev => [...prev, {
+                        role: 'bot',
+                        text: `❌ Error: ${err.message || "Something went wrong"}`
+                    }]);
+                    setIsGenerating(false);
+                }
+            };
+
+            // ===== MINDMAP =====
+            const generateMindmap = () => {
+                if (!activeDoc) {
+                    alert('Please upload a document first');
+                    return;
+                }
+                setMindmapData([
+                    { id: 'root', label: activeDoc.name.replace('.pdf', '').substring(0, 30), parent: null, color: '#dc2626' },
+                    { id: '1', label: 'Key Concept 1', parent: 'root', color: '#4CAF50' },
+                    { id: '2', label: 'Key Concept 2', parent: 'root', color: '#2196F3' },
+                    { id: '3', label: 'Key Concept 3', parent: 'root', color: '#FF9800' },
+                    { id: '1-1', label: 'Sub-concept A', parent: '1', color: '#8BC34A' },
+                    { id: '1-2', label: 'Sub-concept B', parent: '1', color: '#8BC34A' },
+                    { id: '2-1', label: 'Sub-concept C', parent: '2', color: '#64B5F6' },
+                    { id: '3-1', label: 'Sub-concept D', parent: '3', color: '#FFB74D' },
+                ]);
+                setShowMindmap(true);
+            };
+
+            const generatePresentation = () => {
+                if (!activeDoc) {
+                    alert('Please upload a document first');
+                    return;
+                }
+                alert(`✅ Presentation generated for: ${activeDoc.name}`);
+                setShowPresentation(false);
+            };
+
+            // ===== BUILD UI =====
+            
+            // API Key Manager
             let apiKeyManager;
             if (!showApiInput) {
                 apiKeyManager = React.createElement('div', { className: 'flex items-center gap-2' },
                     React.createElement('span', { className: 'text-xs text-gray-500 dark:text-gray-400' }, '🔑'),
                     React.createElement('span', { className: `status-dot ${statusConfig.dot}` }),
-                    React.createElement('span', { className: `text-xs ${apiStatus === 'valid' ? 'text-green-700 dark:text-green-400' : apiStatus === 'invalid' ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}` },
-                        statusConfig.text
-                    ),
+                    React.createElement('span', { className: `text-xs ${apiStatus === 'valid' ? 'text-green-700 dark:text-green-400' : apiStatus === 'invalid' ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}` }, statusConfig.text),
                     React.createElement('button', {
                         onClick: () => { setShowApiInput(true);
                             setTempApiKey(apiKey); },
@@ -349,23 +379,37 @@
                 );
             }
 
-            // Theme Switcher
-            const themeSwitcher = React.createElement('div', { className: 'flex items-center gap-2' },
-                React.createElement('button', {
-                    onClick: toggleTheme,
-                    className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                }, theme === 'light' ? '🌙' : '☀️'),
-                React.createElement('button', {
-                    onClick: () => {
-                        const colors = ['red', 'blue', 'green', 'purple', 'orange'];
-                        const next = colors[(colors.indexOf(color) + 1) % colors.length];
-                        setColor(next);
+            // Document list
+            const docItems = documents.map(d => {
+                const isActive = activeDocId === d.id;
+                return React.createElement('div', { key: d.id, className: 'group relative' },
+                    React.createElement('button', {
+                        onClick: () => { setActiveDocId(d.id);
+                            setCurrentPage(1);
+                            setNumPages(0);
+                            setShowMindmap(false);
+                            setShowPresentation(false); },
+                        className: `w-full p-2 text-sm text-left border rounded-lg flex items-center gap-2 mt-1 ${isActive ? getColorClass('bg') + ' text-white' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-700'}`
                     },
-                    className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
-                }, '🎨')
-            );
+                        React.createElement('span', null, '📄'),
+                        React.createElement('span', { className: 'truncate flex-1' }, d.name)
+                    ),
+                    React.createElement('button', {
+                        onClick: () => handleDelete(d.id),
+                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
+                    }, '✕')
+                );
+            });
 
-            // Main App UI
+            // Chat messages
+            const chatMessages = messages.map((m, i) => {
+                return React.createElement('div', {
+                    key: i,
+                    className: `p-2 rounded text-sm ${m.role === 'user' ? 'bg-gray-100 dark:bg-gray-700 ml-4' : 'bg-blue-50 dark:bg-blue-900/30 mr-4'}`
+                }, m.text);
+            });
+
+            // Main App
             return React.createElement('div', {
                 className: `min-h-screen flex flex-col ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`
             },
@@ -376,7 +420,18 @@
                     React.createElement('h1', { className: `font-serif text-xl font-bold ${getColorClass('text')}` }, 'MyLLM Research Note'),
                     React.createElement('div', { className: 'flex items-center gap-3' },
                         apiKeyManager,
-                        themeSwitcher
+                        React.createElement('button', {
+                            onClick: toggleTheme,
+                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }, theme === 'light' ? '🌙' : '☀️'),
+                        React.createElement('button', {
+                            onClick: () => {
+                                const colors = ['red', 'blue', 'green', 'purple', 'orange'];
+                                const next = colors[(colors.indexOf(color) + 1) % colors.length];
+                                setColor(next);
+                            },
+                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                        }, '🎨')
                     )
                 ),
 
@@ -386,7 +441,6 @@
                     React.createElement('aside', {
                         className: `w-64 border-r ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'} flex flex-col`
                     },
-                        // Upload
                         React.createElement('div', { className: 'p-3 border-b dark:border-gray-700 bg-white dark:bg-gray-800' },
                             React.createElement('button', {
                                 onClick: () => document.getElementById('fileInput').click(),
@@ -405,7 +459,6 @@
                             ),
                             React.createElement('p', { className: 'text-[10px] text-gray-400 dark:text-gray-500 text-center mt-1' }, 'Upload one or multiple PDFs')
                         ),
-                        // Library
                         React.createElement('div', { className: 'flex-1 overflow-y-auto p-3' },
                             React.createElement('div', { className: 'flex items-center gap-2 mb-2' },
                                 React.createElement('span', { className: 'text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400' }, '📚 Library (' + documents.length + ')')
@@ -424,7 +477,6 @@
                     React.createElement('main', {
                         className: `flex-1 flex flex-col ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`
                     },
-                        // Toolbar
                         React.createElement('div', {
                             className: `p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex justify-between items-center`
                         },
@@ -461,7 +513,6 @@
                             null
                         ),
 
-                        // Action Buttons
                         activeDoc ?
                         React.createElement('div', {
                             className: `p-2 border-b ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex items-center gap-2`
@@ -477,7 +528,6 @@
                         ) :
                         null,
 
-                        // Viewer
                         React.createElement('div', { className: 'flex-1 overflow-auto p-4 flex items-center justify-center' },
                             showPresentation && activeDoc ?
                             React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col items-center justify-center' },
@@ -547,7 +597,11 @@
                                 '💬 Ask me anything about your documents!'
                             ) :
                             chatMessages,
-                            React.createElement('div', { ref: useRef(null) })
+                            isGenerating ?
+                            React.createElement('div', { className: 'p-2 rounded bg-blue-50 dark:bg-blue-900/30 mr-4 text-sm text-gray-500 dark:text-gray-400' },
+                                '⏳ Thinking...'
+                            ) :
+                            null
                         ),
                         React.createElement('div', { className: 'p-2 border-t dark:border-gray-700' },
                             React.createElement('div', { className: 'flex gap-2' },
@@ -561,8 +615,8 @@
                                 }),
                                 React.createElement('button', {
                                     onClick: sendMessage,
-                                    disabled: apiStatus !== 'valid',
-                                    className: `p-2 rounded text-white ${apiStatus === 'valid' ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'}`
+                                    disabled: apiStatus !== 'valid' || isGenerating,
+                                    className: `p-2 rounded text-white ${apiStatus === 'valid' && !isGenerating ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'}`
                                 }, '➤')
                             ),
                             apiStatus !== 'valid' ?
@@ -576,7 +630,7 @@
             );
         }
 
-        // ===== RENDER =====
+        // Render
         try {
             const root = createRoot(document.getElementById('root'));
             root.render(React.createElement(App));
@@ -587,7 +641,6 @@
                         <div style="font-size:48px; margin-bottom:20px;">⚠️</div>
                         <h2 style="color:#dc2626; margin-bottom:10px;">Something went wrong</h2>
                         <p style="color:#6b7280;">${error.message}</p>
-                        <p style="color:#6b7280; font-size:12px; margin-top:20px;">Please check the console for details</p>
                     </div>
                 `;
         }
