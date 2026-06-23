@@ -10,18 +10,6 @@
     </script>
     <style>
         html, body, #root { height: 100%; margin: 0; padding: 0; }
-        .loading-spinner {
-            border: 4px solid #f3f4f6;
-            border-top: 4px solid #dc2626;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
         .status-dot {
             display: inline-block;
             width: 8px;
@@ -38,12 +26,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            padding: 20px;
+            padding: 10px;
+            background: #f3f4f6;
         }
-        .pdf-container embed {
+        .pdf-container iframe {
             width: 100%;
             height: 100%;
-            min-height: 600px;
+            min-height: 500px;
             border: none;
             border-radius: 8px;
             background: white;
@@ -58,12 +47,7 @@
     </style>
 </head>
 <body>
-    <div id="root">
-        <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; gap:20px; background:#f9fafb;">
-            <div class="loading-spinner"></div>
-            <p style="color:#6b7280; font-family: system-ui, sans-serif;">Loading MyLLM Research Note...</p>
-        </div>
-    </div>
+    <div id="root"></div>
 
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -80,7 +64,7 @@
             const [theme, setTheme] = useState('light');
             const [color, setColor] = useState('red');
             
-            // ===== API KEY STATE =====
+            // API Key State
             const [apiKey, setApiKey] = useState(() => {
                 try { return localStorage.getItem('gemini_api_key') || ''; } catch(e) { return ''; }
             });
@@ -89,7 +73,7 @@
             const [tempApiKey, setTempApiKey] = useState('');
             const [isValidating, setIsValidating] = useState(false);
 
-            // ===== VALIDATE API KEY =====
+            // Validate API Key
             const validateApiKey = async (key) => {
                 if (!key || key.trim() === '') {
                     setApiStatus('idle');
@@ -98,7 +82,6 @@
                 
                 setIsValidating(true);
                 try {
-                    // Try to make a simple request to Gemini API
                     const response = await fetch(
                         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
                         {
@@ -115,10 +98,13 @@
                         setApiStatus('valid');
                         return true;
                     } else {
+                        const errorData = await response.json();
+                        console.error('API Error:', errorData);
                         setApiStatus('invalid');
                         return false;
                     }
                 } catch (err) {
+                    console.error('Validation error:', err);
                     setApiStatus('invalid');
                     return false;
                 } finally {
@@ -126,7 +112,7 @@
                 }
             };
 
-            // ===== API KEY FUNCTIONS =====
+            // API Key Functions
             const handleApiKeyChange = (e) => {
                 const newKey = e.target.value;
                 setTempApiKey(newKey);
@@ -138,16 +124,19 @@
             };
 
             const handleSaveApiKey = async () => {
-                if (!tempApiKey || tempApiKey.trim().length < 10) return;
+                if (!tempApiKey || tempApiKey.trim().length < 10) {
+                    alert('Please enter a valid API key (minimum 10 characters)');
+                    return;
+                }
                 
                 const isValid = await validateApiKey(tempApiKey);
                 if (isValid) {
                     setApiKey(tempApiKey);
                     localStorage.setItem('gemini_api_key', tempApiKey);
                     setShowApiInput(false);
+                    alert('✅ API key validated successfully!');
                 } else {
-                    // Show error to user
-                    alert('Invalid API key. Please check your Gemini API key and try again.');
+                    alert('❌ Invalid API key. Please check your Gemini API key and try again.');
                 }
             };
 
@@ -169,7 +158,7 @@
                 setShowApiInput(false);
             };
 
-            // ===== VALIDATE ON LOAD =====
+            // Validate on load
             useEffect(() => {
                 if (apiKey) {
                     validateApiKey(apiKey);
@@ -178,15 +167,15 @@
 
             const getStatusConfig = () => {
                 switch (apiStatus) {
-                    case 'valid': return { dot: 'green', text: 'Connected', textColor: 'text-green-700 dark:text-green-400' };
-                    case 'invalid': return { dot: 'red', text: 'Invalid Key', textColor: 'text-red-700 dark:text-red-400' };
-                    case 'checking': return { dot: 'yellow', text: 'Checking...', textColor: 'text-yellow-700 dark:text-yellow-400' };
-                    default: return { dot: 'yellow', text: 'Not Set', textColor: 'text-yellow-700 dark:text-yellow-400' };
+                    case 'valid': return { dot: 'green', text: 'Connected' };
+                    case 'invalid': return { dot: 'red', text: 'Invalid Key' };
+                    case 'checking': return { dot: 'yellow', text: 'Checking...' };
+                    default: return { dot: 'yellow', text: 'Not Set' };
                 }
             };
             const statusConfig = getStatusConfig();
 
-            // ===== THEME FUNCTIONS =====
+            // Theme Functions
             const toggleTheme = () => {
                 const newTheme = theme === 'light' ? 'dark' : 'light';
                 setTheme(newTheme);
@@ -205,7 +194,7 @@
                 return type === 'bg' ? c.bg : type === 'hover' ? c.hover : c.text;
             };
 
-            // ===== DOCUMENT FUNCTIONS =====
+            // Document Functions
             const handleUpload = (e) => {
                 const files = e.target.files;
                 if (!files || files.length === 0) return;
@@ -237,7 +226,7 @@
 
             const activeDoc = documents.find(d => d.id === activeDocId);
 
-            // ===== PDF VIEWER =====
+            // PDF Viewer using iframe
             function PDFViewer({ doc }) {
                 if (!doc || !doc.data) {
                     return React.createElement('div', { className: 'pdf-container' },
@@ -250,15 +239,15 @@
                 }
 
                 return React.createElement('div', { className: 'pdf-container' },
-                    React.createElement('embed', {
+                    React.createElement('iframe', {
                         src: doc.data,
-                        type: 'application/pdf',
-                        style: { width: '100%', height: '100%', minHeight: '600px', borderRadius: '8px' }
+                        title: doc.name,
+                        style: { width: '100%', height: '100%', minHeight: '500px', border: 'none', borderRadius: '8px', background: 'white' }
                     })
                 );
             }
 
-            // ===== CHAT FUNCTIONS =====
+            // Chat Functions
             const sendMessage = () => {
                 if (!input.trim()) return;
 
@@ -271,7 +260,7 @@
                     if (apiStatus === 'valid') {
                         setMessages(prev => [...prev, {
                             role: 'bot',
-                            text: `🤖 You asked: "${currentInput}"\n\nYour API key is valid! The Gemini integration is ready.`
+                            text: `🤖 You asked: "${currentInput}"\n\nYour API key is valid! Ready for Gemini integration.`
                         }]);
                     } else {
                         setMessages(prev => [...prev, {
@@ -282,7 +271,11 @@
                 }, 500);
             };
 
-            // ===== MINDMAP =====
+            // Mindmap
+            const [mindmapData, setMindmapData] = useState(null);
+            const [showMindmap, setShowMindmap] = useState(false);
+            const [showPresentation, setShowPresentation] = useState(false);
+
             const generateMindmap = () => {
                 if (!activeDoc) {
                     alert('Please upload a document first');
@@ -301,10 +294,6 @@
                 setShowMindmap(true);
             };
 
-            const [mindmapData, setMindmapData] = useState(null);
-            const [showMindmap, setShowMindmap] = useState(false);
-            const [showPresentation, setShowPresentation] = useState(false);
-
             const generatePresentation = () => {
                 if (!activeDoc) {
                     alert('Please upload a document first');
@@ -322,15 +311,15 @@
                 apiKeyManager = React.createElement('div', { className: 'flex items-center gap-2' },
                     React.createElement('span', { className: 'text-xs text-gray-500 dark:text-gray-400' }, '🔑'),
                     React.createElement('span', { className: `status-dot ${statusConfig.dot}` }),
-                    React.createElement('span', { className: `text-xs ${statusConfig.textColor}` }, statusConfig.text),
+                    React.createElement('span', { className: `text-xs ${apiStatus === 'valid' ? 'text-green-700 dark:text-green-400' : apiStatus === 'invalid' ? 'text-red-700 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400'}` }, statusConfig.text),
                     React.createElement('button', {
                         onClick: () => { setShowApiInput(true);
                             setTempApiKey(apiKey); },
-                        className: 'text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded text-gray-700 dark:text-gray-300'
+                        className: 'text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded'
                     }, apiKey ? 'Change' : 'Set Key'),
                     apiKey ? React.createElement('button', {
                         onClick: handleRemoveApiKey,
-                        className: 'text-xs px-2 py-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded'
+                        className: 'text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded'
                     }, '✕') : null
                 );
             } else {
@@ -338,7 +327,7 @@
                     React.createElement('input', {
                         type: 'password',
                         placeholder: 'Enter Gemini API key...',
-                        className: 'border p-1 text-xs rounded w-48 focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100',
+                        className: 'border p-1 text-xs rounded w-48 focus:outline-none focus:ring-2 bg-white dark:bg-gray-700',
                         value: tempApiKey,
                         onChange: handleApiKeyChange,
                         autoFocus: true,
@@ -347,11 +336,11 @@
                     React.createElement('button', {
                         onClick: handleSaveApiKey,
                         disabled: isValidating || !tempApiKey || tempApiKey.trim().length < 10,
-                        className: `px-2 py-1 rounded text-xs font-semibold ${!isValidating && tempApiKey && tempApiKey.trim().length >= 10 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500 dark:text-gray-400'}`
+                        className: `px-2 py-1 rounded text-xs font-semibold ${!isValidating && tempApiKey && tempApiKey.trim().length >= 10 ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed text-gray-500'}`
                     }, isValidating ? 'Checking...' : 'Save'),
                     React.createElement('button', {
                         onClick: handleCancelApiKey,
-                        className: 'px-2 py-1 rounded text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        className: 'px-2 py-1 rounded text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300'
                     }, 'Cancel')
                 );
             }
@@ -371,7 +360,7 @@
                     ),
                     React.createElement('button', {
                         onClick: () => handleDelete(d.id),
-                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
+                        className: 'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-opacity text-red-500'
                     }, '✕')
                 );
             });
@@ -397,7 +386,7 @@
                         apiKeyManager,
                         React.createElement('button', {
                             onClick: toggleTheme,
-                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 border border-gray-200'
                         }, theme === 'light' ? '🌙' : '☀️'),
                         React.createElement('button', {
                             onClick: () => {
@@ -405,7 +394,7 @@
                                 const next = colors[(colors.indexOf(color) + 1) % colors.length];
                                 setColor(next);
                             },
-                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                            className: 'p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 border border-gray-200'
                         }, '🎨')
                     )
                 ),
@@ -478,7 +467,7 @@
                         React.createElement('div', { className: 'flex-1 overflow-auto' },
                             showPresentation && activeDoc ?
                             React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl p-8 flex flex-col items-center justify-center' },
-                                React.createElement('h2', { className: 'text-2xl font-bold text-gray-900 dark:text-gray-100' }, '🎯 Create Presentation'),
+                                React.createElement('h2', { className: 'text-2xl font-bold' }, '🎯 Create Presentation'),
                                 React.createElement('p', { className: 'text-gray-500 dark:text-gray-400 mt-2' }, 'Generate slides from your document'),
                                 React.createElement('button', {
                                     onClick: generatePresentation,
@@ -486,13 +475,13 @@
                                 }, 'Generate Slides'),
                                 React.createElement('button', {
                                     onClick: () => setShowPresentation(false),
-                                    className: 'mt-2 px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300'
+                                    className: 'mt-2 px-6 py-2 bg-gray-200 dark:bg-gray-700 rounded'
                                 }, 'Close')
                             ) :
                             showMindmap && mindmapData ?
                             React.createElement('div', { className: 'w-full h-full bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col' },
                                 React.createElement('div', { className: 'flex justify-between items-center p-3 border-b bg-gray-50 dark:bg-gray-700' },
-                                    React.createElement('h3', { className: 'font-bold text-lg text-gray-900 dark:text-gray-100' }, '🌳 Mindmap'),
+                                    React.createElement('h3', { className: 'font-bold text-lg' }, '🌳 Mindmap'),
                                     React.createElement('button', {
                                         onClick: () => setShowMindmap(false),
                                         className: 'text-gray-500 hover:text-gray-700'
@@ -531,8 +520,8 @@
                         },
                             React.createElement('span', null, '💬 Research Assistant'),
                             apiStatus === 'valid' ?
-                            React.createElement('span', { className: 'text-xs text-green-600 dark:text-green-400' }, '✅ Online') :
-                            React.createElement('span', { className: 'text-xs text-yellow-600 dark:text-yellow-400' }, '⚠️ API Key Required')
+                            React.createElement('span', { className: 'text-xs text-green-600' }, '✅ Online') :
+                            React.createElement('span', { className: 'text-xs text-yellow-600' }, '⚠️ API Key Required')
                         ),
                         React.createElement('div', { className: 'flex-1 overflow-y-auto p-2 space-y-2' },
                             messages.length === 0 ?
@@ -546,7 +535,7 @@
                                 React.createElement('input', {
                                     value: input,
                                     onChange: (e) => setInput(e.target.value),
-                                    className: `flex-1 border p-2 rounded text-sm bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 ${apiStatus !== 'valid' ? 'cursor-not-allowed opacity-60' : ''}`,
+                                    className: `flex-1 border p-2 rounded text-sm bg-white dark:bg-gray-700 ${apiStatus !== 'valid' ? 'cursor-not-allowed opacity-60' : ''}`,
                                     placeholder: apiStatus === 'valid' ? 'Ask anything...' : 'Set API key first...',
                                     onKeyPress: (e) => e.key === 'Enter' && sendMessage(),
                                     disabled: apiStatus !== 'valid'
@@ -554,11 +543,11 @@
                                 React.createElement('button', {
                                     onClick: sendMessage,
                                     disabled: apiStatus !== 'valid',
-                                    className: `p-2 rounded text-white ${apiStatus === 'valid' ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 dark:bg-gray-600 cursor-not-allowed'}`
+                                    className: `p-2 rounded text-white ${apiStatus === 'valid' ? getColorClass('bg') + ' ' + getColorClass('hover') : 'bg-gray-400 cursor-not-allowed'}`
                                 }, '➤')
                             ),
                             apiStatus !== 'valid' ?
-                            React.createElement('p', { className: 'text-xs text-yellow-600 dark:text-yellow-500 mt-1' },
+                            React.createElement('p', { className: 'text-xs text-yellow-600 mt-1' },
                                 '⚠️ Please set a valid API key in the header'
                             ) :
                             null
